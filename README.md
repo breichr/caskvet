@@ -226,4 +226,4 @@ exit codes). Only `collector` and `localscan` perform I/O.
 
 ## License
 
-TBD by the maintainers.
+MIT — see [LICENSE](LICENSE).
