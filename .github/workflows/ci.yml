@@ -1,0 +1,22 @@
+# Minimal CI: build, vet, test. All tests run offline against recorded
+# fixtures (see AGENTS.md testing requirements) — no network needed.
+# No release job here yet; goreleaser runs outside CI for now.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Matches the go directive in go.mod.
+          go-version: '1.27.x'
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
