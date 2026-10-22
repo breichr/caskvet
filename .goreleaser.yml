@@ -1,0 +1,37 @@
+version: 2
+
+project_name: caskvet
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: caskvet
+    main: ./cmd/caskvet
+    binary: caskvet
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - arm64
+      - amd64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+archives:
+  - id: default
+    formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Tag }}_darwin_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  draft: true
+  mode: keep-existing
+
+# The own Homebrew tap (homebrew-caskvet) is a later roadmap stage:
+# its formula lives in the tap repository, not here.
