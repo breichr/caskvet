@@ -39,8 +39,16 @@ func (s *Scanner) LocateAppBundles(token, version string, declaredNames []string
 	searchDirs = append(searchDirs, tokenDir)
 
 	if len(declaredNames) == 0 {
-		// Casks without app artifacts: report leftovers only.
-		return globAppBundles(searchDirs...), nil
+		// Casks without app artifacts: report leftovers in their own
+		// Caskroom directory only. Application directories are never
+		// globbed for undeclared casks — an app found there could not
+		// be attributed to the cask, and a wrong attribution would
+		// fabricate signing data.
+		dirs := []string{tokenDir}
+		if version != "" {
+			dirs = append(dirs, filepath.Join(tokenDir, version))
+		}
+		return globAppBundles(dirs...), nil
 	}
 
 	bundles := make([]AppBundle, 0, len(declaredNames))

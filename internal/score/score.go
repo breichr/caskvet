@@ -100,7 +100,8 @@ type Dimension struct {
 // Result is the score of one cask.
 type Result struct {
 	Token      string      `json:"token"`
-	Overall    *int        `json:"overall"` // nil = unknown (no dimension had data)
+	TapSource  string      `json:"tap_source,omitempty"`
+	Overall    *int        `json:"overall"` // nil = unknown (no gate dimension had data)
 	Dimensions []Dimension `json:"dimensions"`
 }
 
@@ -185,6 +186,7 @@ func Score(now time.Time, current, previous *CaskScan) Result {
 	}
 	result := Result{
 		Token:      current.Token,
+		TapSource:  current.TapSource,
 		Dimensions: make([]Dimension, 0, 4),
 	}
 

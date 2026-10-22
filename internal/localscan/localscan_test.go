@@ -312,18 +312,24 @@ func TestLocateAppBundles(t *testing.T) {
 
 func TestLocateAppBundlesWithoutDeclaredArtifacts(t *testing.T) {
 	root := t.TempDir()
+	applications := filepath.Join(root, "Applications")
 	caskroom := filepath.Join(root, "Caskroom", "font-thing", "1.0")
 	if err := os.MkdirAll(filepath.Join(caskroom, "SomeFont.ttf"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	s := New(WithCaskroomDir(caskroom), WithApplicationsDirs([]string{filepath.Join(root, "Applications")}))
+	// An app in the applications dir must NOT be attributed to a cask
+	// that declares no app artifacts: the glob is Caskroom-only.
+	if err := os.MkdirAll(filepath.Join(applications, "Unrelated.app"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := New(WithCaskroomDir(caskroom), WithApplicationsDirs([]string{applications}))
 
 	bundles, err := s.LocateAppBundles("font-thing", "1.0", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(bundles) != 0 {
-		t.Errorf("font cask with no .app bundles should report none, got %+v", bundles)
+		t.Errorf("font cask with no declared bundles must not adopt apps from application dirs, got %+v", bundles)
 	}
 }
 

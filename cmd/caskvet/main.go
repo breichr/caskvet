@@ -1,13 +1,13 @@
-// Command caskvet is a read-only supply-chain health report for installed
-// Homebrew casks. See AGENTS.md for the product contract.
+// Command caskvet is a read-only supply-chain health report for
+// installed Homebrew casks. See AGENTS.md for the product contract.
 package main
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/breichr/caskvet/internal/cli"
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "caskvet: not implemented yet (scaffold stage)")
-	os.Exit(1)
+	os.Exit(cli.Run(os.Args[1:], cli.Options{}))
 }

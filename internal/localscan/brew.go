@@ -33,6 +33,36 @@ func (s *Scanner) InstalledCasks() ([]InstalledCask, error) {
 	return parseInstalledCasks([]byte(out.Stdout))
 }
 
+// CaskTaps returns the tap each cask came from, via one read-only
+// `brew info --cask --json=v2` invocation for all tokens. Third-party
+// taps matter: those casks are not in the Homebrew core JSON API.
+func (s *Scanner) CaskTaps(tokens []string) (map[string]string, error) {
+	if len(tokens) == 0 {
+		return map[string]string{}, nil
+	}
+	args := append([]string{"info", "--cask", "--json=v2"}, tokens...)
+	out, err := s.Run.Run(s.BrewBin, args...)
+	if err != nil {
+		return nil, fmt.Errorf("localscan: brew info --cask: %w", err)
+	}
+	var data struct {
+		Casks []struct {
+			Token string `json:"token"`
+			Tap   string `json:"tap"`
+		} `json:"casks"`
+	}
+	if err := json.Unmarshal([]byte(out.Stdout), &data); err != nil {
+		return nil, fmt.Errorf("localscan: decoding brew info: %w", err)
+	}
+	taps := make(map[string]string, len(data.Casks))
+	for _, c := range data.Casks {
+		if c.Token != "" {
+			taps[c.Token] = c.Tap
+		}
+	}
+	return taps, nil
+}
+
 // parseInstalledCasks decodes the brew list JSON. A version list with
 // multiple entries yields the first (most recent install); an empty list
 // yields an empty version, which callers must treat as unknown.

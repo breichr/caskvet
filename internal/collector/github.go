@@ -74,6 +74,40 @@ func (c *Client) GitHubRepos(ctx context.Context, repos [][2]string) map[string]
 	return results
 }
 
+// ReleaseResult pairs a repository (owner/repo) with its latest release
+// or fetch error.
+type ReleaseResult struct {
+	Repo    string
+	Release GitHubRelease
+	Err     error
+}
+
+// LatestReleases fetches the latest release for many repositories with
+// bounded concurrency. Results are keyed by "owner/repo".
+func (c *Client) LatestReleases(ctx context.Context, repos [][2]string) map[string]ReleaseResult {
+	results := make(map[string]ReleaseResult, len(repos))
+	var mu sync.Mutex
+	seen := make(map[string]bool, len(repos))
+
+	type repoJob struct{ owner, repo string }
+	unique := make([]repoJob, 0, len(repos))
+	for _, pair := range repos {
+		key := pair[0] + "/" + pair[1]
+		if !seen[key] {
+			seen[key] = true
+			unique = append(unique, repoJob{pair[0], pair[1]})
+		}
+	}
+
+	merge(ctx, unique, c.maxWorkers, func(ctx context.Context, job repoJob) {
+		release, err := c.LatestRelease(ctx, job.owner, job.repo)
+		mu.Lock()
+		results[job.owner+"/"+job.repo] = ReleaseResult{Repo: job.owner + "/" + job.repo, Release: release, Err: err}
+		mu.Unlock()
+	})
+	return results
+}
+
 // LatestRelease fetches the latest non-draft, non-prerelease release.
 // A repository without releases yields ErrNotFound; callers report
 // "unknown", never a fabricated value.

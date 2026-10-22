@@ -110,16 +110,12 @@ func WithRunner(r Runner) ScannerOption {
 	return func(s *Scanner) { s.Run = r }
 }
 
-// WithHome overrides the home directory used to expand default paths.
+// WithHome overrides the home directory used to expand "~" in declared
+// paths. It deliberately does not touch the search directories: use
+// WithApplicationsDirs and WithLaunchAgentDirs for that, so tests can
+// fully isolate from the real machine.
 func WithHome(home string) ScannerOption {
-	return func(s *Scanner) {
-		s.Home = home
-		s.ApplicationsDirs = []string{"/Applications", filepath.Join(home, "Applications")}
-		s.LaunchAgentDirs = []string{
-			"/Library/LaunchAgents",
-			filepath.Join(home, "Library", "LaunchAgents"),
-		}
-	}
+	return func(s *Scanner) { s.Home = home }
 }
 
 // WithCaskroomDir overrides the Caskroom location.
