@@ -130,7 +130,9 @@ func newHarness(t *testing.T) (*harness, *bytes.Buffer, *bytes.Buffer) {
 	}
 	h.runner.responses["brew --prefix"] = localscan.Output{Stdout: caskroom}
 	h.runner.responses["brew info --cask --json=v2 example"] = localscan.Output{
-		Stdout: `{"formulae":[],"casks":[{"token":"example","tap":"homebrew/cask","name":["Example"],"version":"1.2.3"}]}`,
+		Stdout: `{"formulae":[],"casks":[{"token":"example","tap":"homebrew/cask","name":["Example"],
+			"version":"1.2.3","homepage":"https://github.com/acme/example",
+			"artifacts":[{"app":["Example.app"]}]}]}`,
 	}
 	h.runner.responses["codesign -dv --verbose=4 "+appPath] = localscan.Output{
 		Stderr: "Executable=/Applications/Example.app/Contents/MacOS/Example\n" +
@@ -413,9 +415,12 @@ func TestWatchNoChangeMeansNoNotification(t *testing.T) {
 func TestThirdPartyTapCaskReportsUnknown(t *testing.T) {
 	h, out, _ := newHarness(t)
 
-	// The cask comes from a third-party tap and is not in the core API.
+	// The cask comes from a third-party tap with a non-GitHub
+	// homepage: metadata comes from brew info, and maintenance stays
+	// unknown with the explicit hint.
 	h.runner.responses["brew info --cask --json=v2 example"] = localscan.Output{
-		Stdout: `{"formulae":[],"casks":[{"token":"example","tap":"user/mytap","name":["Example"],"version":"1.2.3"}]}`,
+		Stdout: `{"formulae":[],"casks":[{"token":"example","tap":"user/mytap","name":["Example"],
+			"version":"1.2.3","homepage":"https://vendor.example.com/example","artifacts":[]}]}`,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r) // core API: not found
@@ -446,6 +451,40 @@ func TestThirdPartyTapCaskReportsUnknown(t *testing.T) {
 	}
 }
 
+func TestThirdPartyTapGitHubHomepageScoresMaintenance(t *testing.T) {
+	h, out, _ := newHarness(t)
+
+	// Roadmap item: third-party tap metadata via local brew info. The
+	// tap cask declares its app bundle and a GitHub homepage, so both
+	// gate dimensions score like a core cask.
+	h.runner.responses["brew info --cask --json=v2 example"] = localscan.Output{
+		Stdout: `{"formulae":[],"casks":[{"token":"example","tap":"user/mytap","name":["Example"],
+			"version":"1.2.3","homepage":"https://github.com/acme/example",
+			"artifacts":[{"app":["Example.app"]}]}]}`,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r) // not in the core JSON API
+	}))
+	defer srv.Close()
+
+	opts := h.buildOptions()
+	opts.HomebrewBaseURL = srv.URL + "/cask"
+	if code := Run([]string{"why", "example"}, opts); code != ExitOK {
+		t.Fatalf("third-party tap cask with GitHub homepage must scan (exit %d), output: %s%s",
+			code, h.out.String(), h.errOut.String())
+	}
+	text := out.String()
+	if !strings.Contains(text, "maintenance (weight 0.4): 100") {
+		t.Errorf("maintenance must score from the GitHub homepage via brew info, got: %s", text)
+	}
+	if !strings.Contains(text, "signing (weight 0.3): 100") {
+		t.Errorf("signing must score from the declared app bundle found on disk, got: %s", text)
+	}
+	if !strings.Contains(text, "overall: 100") {
+		t.Errorf("overall must be 100, got: %s", text)
+	}
+}
+
 func TestUsageErrors(t *testing.T) {
 	h, _, errOut := newHarness(t)
 
@@ -458,11 +497,71 @@ func TestUsageErrors(t *testing.T) {
 	if code := Run([]string{"report", "--xml"}, h.buildOptions()); code != ExitError {
 		t.Errorf("unknown flag: exit = %d, want 1", code)
 	}
-	if code := Run([]string{"install", "example"}, h.buildOptions()); code != ExitError {
-		t.Errorf("install stub: exit = %d, want 1", code)
+	_ = errOut
+}
+
+func TestInstallGateHealthyCask(t *testing.T) {
+	h, out, errOut := newHarness(t)
+
+	code := Run([]string{"install", "example"}, h.buildOptions())
+	if code != ExitOK {
+		t.Fatalf("exit = %d (stderr: %s)", code, errOut.String())
 	}
-	if !strings.Contains(errOut.String(), "nothing was installed") {
-		t.Errorf("install stub must state that nothing was installed, got: %s", errOut.String())
+	text := out.String()
+	for _, want := range []string{
+		"install gate: example (tap: homebrew/cask)",
+		"would install: Example.app",
+		"maintenance: 100",
+		"signing: unknown — verified by `caskvet report` after install",
+		"latest release: 1.2.3",
+		"verdict: no at-risk findings — proceed with: brew install --cask example",
+		"caskvet never installs anything",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("install gate output missing %q\ngot: %s", want, text)
+		}
+	}
+}
+
+func TestInstallGateAtRiskOnDeprecatedCask(t *testing.T) {
+	h, out, _ := newHarness(t)
+	// The cask lives in a third-party tap and is deprecated there with
+	// a replacement token — all known from brew info alone.
+	h.runner.responses["brew info --cask --json=v2 old-tool"] = localscan.Output{
+		Stdout: `{"formulae":[],"casks":[{"token":"old-tool","tap":"user/mytap","name":["Old Tool"],
+			"version":"0.9","homepage":"https://github.com/acme/example",
+			"deprecated":true,"replacement":"new-tool","artifacts":[{"app":["Old Tool.app"]}]}]}`,
+	}
+
+	code := Run([]string{"install", "old-tool"}, h.buildOptions())
+	if code != ExitAtRisk {
+		t.Fatalf("exit = %d, want 2 (deprecated cask)", code)
+	}
+	text := out.String()
+	if !strings.Contains(text, "AT-RISK") {
+		t.Errorf("verdict must be AT-RISK, got: %s", text)
+	}
+	if !strings.Contains(text, "replacement cask: new-tool") {
+		t.Errorf("replacement token must be surfaced, got: %s", text)
+	}
+}
+
+func TestInstallGateUsageErrors(t *testing.T) {
+	h, _, errOut := newHarness(t)
+
+	// Invalid token characters.
+	if code := Run([]string{"install", "Not Valid"}, h.buildOptions()); code != ExitError {
+		t.Errorf("invalid token: exit = %d, want 1", code)
+	}
+	// Valid token that no tap knows.
+	h.runner.responses["brew info --cask --json=v2 mystery"] = localscan.Output{
+		Stdout: `{"formulae":[],"casks":[]}`,
+	}
+	if code := Run([]string{"install", "mystery"}, h.buildOptions()); code != ExitError {
+		t.Errorf("unknown cask: exit = %d, want 1", code)
+	}
+	if !strings.Contains(errOut.String(), "mystery") {
+		t.Errorf("error must name the missing cask, got: %s", errOut.String())
 	}
 }
 

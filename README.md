@@ -56,7 +56,7 @@ The first run works with zero configuration and no token.
 caskvet report [--json]     # scan and print the report table
 caskvet why <cask>          # detailed scoring justification
 caskvet watch               # compare against the last snapshot
-caskvet install <cask>      # pre-install gate (later roadmap stage)
+caskvet install <cask>      # pre-install gate (read-only check)
 ```
 
 Example:
@@ -78,6 +78,28 @@ login items) associated with the cask.
 `caskvet why linearmouse` prints the full justification: every
 dimension's score and the facts behind it, including signing team
 identifiers and every background item found.
+
+### Pre-install gate
+
+`caskvet install <cask>` checks a cask you are **considering**
+installing — read-only; caskvet never installs anything. It gates on
+what can be known before an install: maintenance (repository archived,
+stale, deprecated — including the replacement token when Homebrew
+defines one), declared background items, and the latest release.
+Signing is unknown by design until the bundle is on disk; run
+`caskvet report` after installing to verify it.
+
+```console
+$ caskvet install linearmouse
+caskvet install gate: linearmouse (tap: homebrew/cask) version 0.12.0
+  would install: LinearMouse.app
+  maintenance: 100
+    [info] last upstream commit was 1 months ago
+  signing: unknown — verified by `caskvet report` after install
+  latest release: v0.12.0
+verdict: no at-risk findings — proceed with: brew install --cask linearmouse
+caskvet never installs anything; it only checks.
+```
 
 ### Exit codes
 
@@ -206,11 +228,12 @@ schema:
 
 Documented in the output, not hidden:
 
-- **Third-party taps.** Casks from taps other than `homebrew/cask` are
-  not in the Homebrew core JSON API; they report maintenance `unknown`
-  with the hint "not in Homebrew core API" and their tap shown.
-  Pulling metadata from local `brew info` instead is a later roadmap
-  item.
+- **Third-party taps.** Casks from taps other than `homebrew/cask`
+  are not in the Homebrew core JSON API; their metadata comes from a
+  read-only local `brew info` call instead. When the cask's homepage
+  points at GitHub, maintenance scores normally; otherwise maintenance
+  reports `unknown` with the hint "not in Homebrew core API" and the
+  tap shown.
 - **Non-GitHub homepages.** Maintenance is scored from the upstream
   GitHub repository. Many modern casks point their homepage at a vendor
   domain (`ghostty.org`, `linearmouse.org`, …) rather than GitHub;
@@ -235,10 +258,9 @@ exit codes). Only `collector` and `localscan` perform I/O.
 
 ## Roadmap
 
-1. `caskvet install <cask>` — a pre-install trust gate (casks are
-   rock-solid first).
-2. Local `brew info` metadata for third-party tap casks.
-3. Formulae support, once casks are rock-solid.
+1. Formulae support, once casks are rock-solid.
+2. First binary release: goreleaser run, the `homebrew-caskvet` tap,
+   and Developer ID signing.
 
 ## License
 

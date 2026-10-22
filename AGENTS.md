@@ -74,14 +74,14 @@ Currency 0 and transparency facts never produce exit 2. Exit 0 otherwise; exit 1
 caskvet report [--json]          # scan and print the table
 caskvet why <cask>               # detailed scoring justification
 caskvet watch                    # compare against last snapshot, notify on the two triggers
-caskvet install <cask>           # pre-install gate (later roadmap stage)
+caskvet install <cask>           # pre-install gate (read-only check; caskvet never installs anything)
 ```
 
 The first run must work with zero configuration and no token. Output is a compact table; `--json` is stable schema, machine-readable, documented. When a scan hits GitHub rate limits (results degraded to unknown) or the cask count visibly exceeds the unauthenticated budget (60 req/h, ~2 calls per cask) with no `GITHUB_TOKEN` set, print a single "set GITHUB_TOKEN for full coverage" hint — once, at the end of the run, never per cask.
 
 ## Known limitations (documented in output, not hidden)
 
-- Casks from third-party taps are not in the Homebrew core JSON API and report maintenance "unknown" with the hint "not in Homebrew core API". The report always shows the tap source. Pulling metadata from local `brew info` instead is a later roadmap item, not MVP.
+- Casks from third-party taps are not in the Homebrew core JSON API. Their metadata (tap, homepage, deprecated/replacement state, declared artifacts) comes from a read-only local `brew info` call instead. When the homepage points at GitHub, maintenance scores normally; otherwise it reports "unknown" with the hint "not in Homebrew core API". The report always shows the tap source.
 - TCC permissions are not scanned (see Transparency above).
 
 ## Testing requirements

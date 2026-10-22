@@ -142,10 +142,7 @@ func Run(args []string, o Options) int {
 	case "watch":
 		return e.cmdWatch(ctx, args[1:])
 	case "install":
-		// Pre-install gate is a later roadmap stage. Never install
-		// anything.
-		fmt.Fprintln(e.errOut, "caskvet install: pre-install gate is a later roadmap stage; nothing was installed")
-		return ExitError
+		return e.cmdInstall(ctx, args[1:])
 	default:
 		fmt.Fprintf(e.errOut, "caskvet: unknown command %q\n", args[0])
 		printUsage(e.errOut)
