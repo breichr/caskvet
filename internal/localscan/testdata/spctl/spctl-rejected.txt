@@ -1,0 +1,3 @@
+/Applications/Example Tool.app: rejected
+source=Unnotarized Developer ID
+origin=Developer ID Application: EXAMPLE TOOL GMBH (EX4MPL3ID)

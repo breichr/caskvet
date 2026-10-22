@@ -1,0 +1,30 @@
+Executable=/Applications/LinearMouse.app/Contents/MacOS/LinearMouse
+Identifier=com.lujjjh.LinearMouse
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20500 size=7778 flags=0x10000(runtime) hashes=232+7 location=embedded
+VersionPlatform=1
+VersionMin=720896
+VersionSDK=1705216
+Hash type=sha256 size=32
+CandidateCDHash sha256=99a70b892437bf55a7a813b653bc6adbb69015f5
+CandidateCDHashFull sha256=99a70b892437bf55a7a813b653bc6adbb69015f5df700052f2fe12b364f0bc28
+Hash choices=sha256
+CMSDigest=99a70b892437bf55a7a813b653bc6adbb69015f5df700052f2fe12b364f0bc28
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=3227648
+Executable Segment flags=0x1
+Page size=16384
+CDHash=99a70b892437bf55a7a813b653bc6adbb69015f5
+Signature size=9038
+Authority=Developer ID Application: Jiahao Lu (C5686NKYJ7)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+Timestamp=03.10.2026 at 02:59:56
+Info.plist entries=29
+TeamIdentifier=C5686NKYJ7
+Runtime Version=26.5.0
+Sealed Resources version=2 rules=13 files=142
+Internal requirements count=1 size=216
+Total signatures=1
+Chosen signature=1

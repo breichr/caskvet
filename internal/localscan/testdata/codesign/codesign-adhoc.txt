@@ -1,0 +1,13 @@
+Executable=/Applications/Example Tool.app/Contents/MacOS/Example Tool
+Identifier=org.example.example-tool
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20500 size=7778 flags=0x0(hashes=232+7) location=embedded
+Hash type=sha256 size=32
+CandidateCDHash sha256=1a2b3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d
+Hash choices=sha256
+CDHash=1a2b3c4d5e6f70819a2b3c4d5e6f70819a2b3c4d
+Signature=adhoc
+Info.plist entries=10
+TeamIdentifier=not set
+Sealed Resources version=2 rules=13 files=42
+Internal requirements count=0 size=0

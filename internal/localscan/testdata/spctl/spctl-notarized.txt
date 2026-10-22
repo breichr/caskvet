@@ -1,0 +1,3 @@
+/Applications/Linearmouse.app: accepted
+source=Notarized Developer ID
+origin=Developer ID Application: Jiahao Lu (C5686NKYJ7)

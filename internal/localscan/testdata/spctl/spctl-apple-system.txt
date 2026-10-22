@@ -1,0 +1,3 @@
+/System/Applications/Calculator.app: accepted
+source=Apple System
+origin=macOS Software Signing
