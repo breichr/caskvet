@@ -12,11 +12,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           # Matches the go directive in go.mod.
           go-version: '1.27.x'
+          # The repo has no dependencies (no go.sum): module caching
+          # cannot work, so skip the cache step.
+          cache: false
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
