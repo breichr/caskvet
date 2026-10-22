@@ -1,0 +1,17 @@
+{
+  "token": "login-item-cask",
+  "name": [
+    "Login Item Cask"
+  ],
+  "desc": "Declares a login item artifact in object form",
+  "homepage": "https://gitlab.com/vendor/login-item-cask",
+  "url": "https://example.com/lic-2.0.dmg",
+  "version": "2.0",
+  "artifacts": [
+    {
+      "login_item": {
+        "item": "Login Item Cask.app"
+      }
+    }
+  ]
+}

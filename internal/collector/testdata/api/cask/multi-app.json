@@ -1,0 +1,28 @@
+{
+  "token": "multi-app",
+  "name": [
+    "Multi App Suite"
+  ],
+  "desc": "A cask that installs two app bundles",
+  "homepage": "https://github.com/breichr/multi-app-suite",
+  "url": "https://example.com/multi-app-1.2.3.zip",
+  "version": "1.2.3",
+  "artifacts": [
+    {
+      "app": [
+        "First App.app",
+        "Second App.app"
+      ]
+    },
+    {
+      "binary": [
+        "/usr/local/bin/multiapp"
+      ]
+    },
+    {
+      "launchctl": [
+        "~/Library/LaunchAgents/com.example.multiapp.plist"
+      ]
+    }
+  ]
+}

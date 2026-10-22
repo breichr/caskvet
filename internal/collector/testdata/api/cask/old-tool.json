@@ -1,0 +1,21 @@
+{
+  "token": "old-tool",
+  "name": [
+    "Old Tool"
+  ],
+  "desc": "A deprecated cask with a replacement token",
+  "homepage": "https://example.com/old-tool",
+  "url": "https://example.com/old-tool-0.9.dmg",
+  "version": "0.9",
+  "deprecated": true,
+  "deprecation_date": "2024-06-01",
+  "deprecation_reason": "discontinued_by_vendor",
+  "replacement": "new-tool",
+  "artifacts": [
+    {
+      "app": [
+        "Old Tool.app"
+      ]
+    }
+  ]
+}
