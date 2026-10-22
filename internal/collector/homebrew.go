@@ -9,8 +9,9 @@ import (
 	"sync"
 )
 
-// tokenPattern is the character set of Homebrew cask tokens.
-var tokenPattern = regexp.MustCompile(`^[a-z0-9-]+$`)
+// tokenPattern is the character set of Homebrew cask tokens, including
+// the "@" of versioned tokens such as "1password-cli@1".
+var tokenPattern = regexp.MustCompile(`^[a-z0-9@-]+$`)
 
 // CaskMeta is the upstream (Homebrew JSON API) view of one cask. Missing
 // upstream data stays zero-valued here; interpreting "missing" as

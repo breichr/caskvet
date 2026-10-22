@@ -1,0 +1,66 @@
+{
+  "formulae": [],
+  "casks": [
+    {
+      "token": "1password-cli@1",
+      "tap": "homebrew/cask",
+      "name": [
+        "1Password CLI (version 1)"
+      ],
+      "homepage": "https://developer.1password.com/docs/cli/v1/usage/",
+      "url": "https://downloads.1password.com/pkg/1password-1.12.9.pkg",
+      "version": "1.12.9",
+      "deprecated": true,
+      "deprecation_date": "2025-06-11",
+      "deprecation_reason": "unmaintained",
+      "replacement": null,
+      "disabled": true,
+      "artifacts": [
+        {
+          "uninstall": [
+            { "pkgutil": "com.1password.cli1" }
+          ]
+        },
+        {
+          "pkg": [
+            "1password-1.12.9.pkg"
+          ]
+        },
+        {
+          "zap": [
+            { "trash": "~/.op" }
+          ]
+        }
+      ]
+    },
+    {
+      "token": "example",
+      "tap": "user/mytap",
+      "name": [
+        "Example"
+      ],
+      "homepage": "https://github.com/acme/example",
+      "version": "1.2.3",
+      "deprecated": false,
+      "replacement": "example-new",
+      "artifacts": [
+        {
+          "app": [
+            "Example.app"
+          ],
+          "target": "/Applications/Example.app"
+        },
+        {
+          "launchctl": [
+            "~/Library/LaunchAgents/com.example.helper.plist"
+          ]
+        },
+        {
+          "login_item": {
+            "item": "Example.app"
+          }
+        }
+      ]
+    }
+  ]
+}

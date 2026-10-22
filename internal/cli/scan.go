@@ -45,17 +45,20 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 		tokens = append(tokens, c.Token)
 	}
 
-	// Tap sources: third-party taps are not in the core JSON API and
-	// report maintenance unknown with a hint. Failure is tolerated.
-	taps, err := e.local.CaskTaps(tokens)
+	// Tap sources and third-party metadata: one read-only brew info
+	// call covers casks from every tap, installed or not. Core casks
+	// keep the Homebrew JSON API as their authoritative source;
+	// third-party casks (not in the core API) get their metadata from
+	// brew info. Failure is tolerated: casks degrade to unknown.
+	infos, err := e.local.CaskInfo(tokens)
 	if err != nil {
-		taps = map[string]string{}
+		infos = map[string]localscan.CaskInfo{}
 	}
 
 	// Upstream metadata for core casks only.
 	coreTokens := make([]string, 0, len(tokens))
 	for _, token := range tokens {
-		if taps[token] == "" || taps[token] == coreTap {
+		if tap := infos[token].Tap; tap == "" || tap == coreTap {
 			coreTokens = append(coreTokens, token)
 		}
 	}
@@ -64,9 +67,16 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 	// GitHub repository and release data, batched.
 	var repoPairs [][2]string
 	seenRepo := make(map[string]bool)
+	homepages := make(map[string]string, len(tokens))
 	for _, token := range tokens {
-		meta := metas[token].Meta
-		owner, repo, perr := collector.ParseGitHubOwnerRepo(meta.Homepage)
+		var homepage string
+		if m, ok := metas[token]; ok && m.Err == nil {
+			homepage = m.Meta.Homepage
+		} else if info, ok := infos[token]; ok {
+			homepage = info.Homepage
+		}
+		homepages[token] = homepage
+		owner, repo, perr := collector.ParseGitHubOwnerRepo(homepage)
 		if perr != nil {
 			continue
 		}
@@ -93,19 +103,32 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 		scan := &score.CaskScan{
 			Token:            token,
 			InstalledVersion: c.Version,
-			TapSource:        taps[token],
-		}
-		meta, metaOK := metas[token].Meta, metas[token].Err == nil
-		if metaOK {
-			scan.Deprecated = meta.Deprecated
-			scan.Disabled = meta.Disabled
-			scan.ReplacementToken = meta.ReplacementToken
-			scan.Homepage = meta.Homepage
-			scan.DeclaredLaunchAgents = meta.LaunchctlPaths
-			scan.DeclaredLoginItems = meta.LoginItems
+			TapSource:        infos[token].Tap,
 		}
 
-		if owner, repo, perr := collector.ParseGitHubOwnerRepo(scan.Homepage); perr == nil {
+		// Core casks: authoritative metadata from the Homebrew JSON
+		// API. Third-party casks (not in the core API): metadata from
+		// the same brew info call that provided the tap.
+		var declared []string
+		if m, ok := metas[token]; ok && m.Err == nil {
+			scan.Deprecated = m.Meta.Deprecated
+			scan.Disabled = m.Meta.Disabled
+			scan.ReplacementToken = m.Meta.ReplacementToken
+			scan.Homepage = m.Meta.Homepage
+			scan.DeclaredLaunchAgents = m.Meta.LaunchctlPaths
+			scan.DeclaredLoginItems = m.Meta.LoginItems
+			declared = m.Meta.AppBundles
+		} else if info, ok := infos[token]; ok {
+			scan.Deprecated = info.Deprecated
+			scan.Disabled = info.Disabled
+			scan.ReplacementToken = info.Replacement
+			scan.Homepage = info.Homepage
+			scan.DeclaredLaunchAgents = info.Launchctl
+			scan.DeclaredLoginItems = info.LoginItems
+			declared = info.AppBundles
+		}
+
+		if owner, repo, perr := collector.ParseGitHubOwnerRepo(homepages[token]); perr == nil {
 			key := owner + "/" + repo
 			if r, ok := repos[key]; ok {
 				if r.Err == nil {
@@ -128,10 +151,6 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 		}
 
 		// Local app bundles and signing state.
-		var declared []string
-		if metaOK {
-			declared = meta.AppBundles
-		}
 		bundles, err := e.local.LocateAppBundles(token, c.Version, declared)
 		if err != nil {
 			bundles = nil

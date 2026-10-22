@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -394,6 +395,64 @@ func TestParsePlistDictVariants(t *testing.T) {
 	}
 	if got["Program"] != "/usr/local/bin/program" {
 		t.Errorf("Program = %v", got["Program"])
+	}
+}
+
+func TestCaskInfoParsesBrewInfo(t *testing.T) {
+	body := readFixture(t, filepath.Join("brew", "info-cask.json"))
+	runner := &fakeRunner{responses: map[string]Output{
+		"brew info --cask --json=v2 1password-cli@1 example": {Stdout: body},
+	}}
+	s := New(WithRunner(runner))
+
+	infos, err := s.CaskInfo([]string{"1password-cli@1", "example"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(infos) != 2 {
+		t.Fatalf("want 2 casks, got %d", len(infos))
+	}
+
+	deprecated := infos["1password-cli@1"]
+	if deprecated.Tap != "homebrew/cask" {
+		t.Errorf("tap = %q", deprecated.Tap)
+	}
+	if !deprecated.Deprecated || !deprecated.Disabled {
+		t.Errorf("deprecated=%v disabled=%v, want true/true", deprecated.Deprecated, deprecated.Disabled)
+	}
+	if deprecated.DeprecationReason != "unmaintained" {
+		t.Errorf("deprecation reason = %q", deprecated.DeprecationReason)
+	}
+	if deprecated.Replacement != "" {
+		t.Errorf("replacement = %q, want empty (null in JSON)", deprecated.Replacement)
+	}
+	if len(deprecated.AppBundles) != 0 {
+		t.Errorf("pkg cask must report no app bundles, got %v", deprecated.AppBundles)
+	}
+
+	tap := infos["example"]
+	if tap.Tap != "user/mytap" {
+		t.Errorf("tap = %q", tap.Tap)
+	}
+	if tap.Homepage != "https://github.com/acme/example" {
+		t.Errorf("homepage = %q", tap.Homepage)
+	}
+	if !reflect.DeepEqual(tap.AppBundles, []string{"Example.app"}) {
+		t.Errorf("app bundles = %v", tap.AppBundles)
+	}
+	if len(tap.Launchctl) != 1 {
+		t.Errorf("launchctl = %v", tap.Launchctl)
+	}
+	if len(tap.LoginItems) != 1 || tap.LoginItems[0] != "Example.app" {
+		t.Errorf("login items = %v", tap.LoginItems)
+	}
+	if tap.Replacement != "example-new" {
+		t.Errorf("replacement = %q, want example-new", tap.Replacement)
+	}
+
+	// Unknown tokens are simply absent from the map.
+	if _, ok := infos["mystery"]; ok {
+		t.Error("unknown token must be absent from the map")
 	}
 }
 

@@ -138,6 +138,27 @@ func TestCaskInvalidTokenRejected(t *testing.T) {
 			t.Errorf("token %q: want ErrInvalidToken, got %v", token, err)
 		}
 	}
+
+	// Versioned tokens with "@" are valid Homebrew tokens.
+	fs2 := newFixtureServer(t)
+	c2 := testClient(t, fs2)
+	if err := newCaskFixture(t, fs2, "1password-cli@1"); err != nil {
+		t.Fatal(err)
+	}
+	meta, err := c2.Cask(context.Background(), "1password-cli@1")
+	if err != nil {
+		t.Fatalf("versioned token must be accepted: %v", err)
+	}
+	if meta.Token != "1password-cli@1" {
+		t.Errorf("token = %q", meta.Token)
+	}
+}
+
+// newCaskFixture writes a minimal cask fixture the server can serve.
+func newCaskFixture(t *testing.T, fs *fixtureServer, token string) error {
+	t.Helper()
+	path := filepath.Join("testdata", "api", "cask", token+".json")
+	return os.WriteFile(path, []byte(`{"token":"`+token+`","name":["X"],"version":"1.0","artifacts":[]}`), 0o644)
 }
 
 func TestCacheServesFreshEntriesWithoutNetwork(t *testing.T) {
