@@ -7,7 +7,9 @@ import (
 
 // transparencyDimension lists the cask's transparency facts, weight 0.2.
 // Show, do not judge: there is no sub-score here, so the dimension is
-// always unknown (nil) and never part of the overall minimum.
+// always unknown (nil) and never part of the overall minimum. The TCC
+// limitation is stated in every report so the gap is visible, never
+// hidden.
 func transparencyDimension(c *CaskScan) Dimension {
 	dim := Dimension{Name: DimensionTransparency, Weight: WeightTransparency}
 
@@ -42,12 +44,18 @@ func transparencyDimension(c *CaskScan) Dimension {
 		})
 	}
 
+	// State an empty fact set explicitly rather than showing nothing,
+	// then always state the TCC limitation so the gap is visible.
 	if len(dim.Findings) == 0 {
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
 			Text:     "no LaunchAgents or login items detected for this cask",
 		})
 	}
+	dim.Findings = append(dim.Findings, Finding{
+		Severity: SeverityInfo,
+		Text:     TCCLimitation,
+	})
 	return dim
 }
 

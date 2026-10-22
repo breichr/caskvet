@@ -34,10 +34,15 @@ func maintenanceDimension(now time.Time, c *CaskScan) Dimension {
 	}
 
 	if !c.RepoDataAvailable {
+		text := "upstream repository data unavailable (non-GitHub homepage or API unreachable): unknown, not scored"
+		if c.TapSource != "" && c.TapSource != "homebrew/cask" {
+			// Third-party taps are not in the Homebrew core JSON API.
+			text = fmt.Sprintf("not in Homebrew core API (tap: %s): maintenance unknown, not scored",
+				c.TapSource)
+		}
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
-			Text: "upstream repository data unavailable " +
-				"(non-GitHub homepage or API unreachable): unknown, not scored",
+			Text:     text,
 		})
 		return dim
 	}

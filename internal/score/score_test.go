@@ -27,6 +27,7 @@ func healthyCask() *CaskScan {
 			Found:              true,
 			Signed:             true,
 			TeamID:             "ACME123456",
+			Authority:          "Developer ID Application: ACME Inc (ACME123456)",
 			Notarized:          true,
 			GatekeeperKnown:    true,
 			GatekeeperAccepted: true,
@@ -107,34 +108,83 @@ func TestStaleRepoHardDeduction(t *testing.T) {
 	requireScore(t, dim(t, r2, DimensionMaintenance), 100)
 }
 
-func TestCertChangeBetweenSnapshots(t *testing.T) {
+func TestAuthorityChangeBetweenSnapshots(t *testing.T) {
 	prev := healthyCask()
 	current := healthyCask()
 	current.Apps[0].TeamID = "NEWT34M1D"
+	current.Apps[0].Authority = "Developer ID Application: New Co (NEWT34M1D)"
 
 	r := Score(now, current, prev)
 	signing := dim(t, r, DimensionSigning)
-	requireScore(t, signing, CertChangeCap)
+	requireScore(t, signing, AuthorityChangeCap)
 
 	text := findingTexts(signing)
-	if !strings.Contains(text, "ACME123456 -> NEWT34M1D") {
-		t.Errorf("warning must print old and new team identifiers in plain text, got: %s", text)
+	if !strings.Contains(text, "Developer ID Application: ACME Inc (ACME123456) -> Developer ID Application: New Co (NEWT34M1D)") {
+		t.Errorf("warning must print old and new authority strings in plain text, got: %s", text)
 	}
-	if !HasCertificateChange(r) {
-		t.Error("HasCertificateChange must detect the change (watch trigger)")
+	if !HasTeamChange(r) {
+		t.Error("HasTeamChange must detect the change (hard watch trigger)")
+	}
+	if HasAuthorityNameChange(r) {
+		t.Error("a team change must not also report as a name-only change")
 	}
 
 	// Without a previous snapshot there is no change to report.
 	r2 := Score(now, current, nil)
-	if HasCertificateChange(r2) {
-		t.Error("first scan must not report a certificate change")
+	if HasTeamChange(r2) {
+		t.Error("first scan must not report an authority change")
 	}
 	if d := dim(t, r2, DimensionSigning); d.Score == nil || *d.Score != 100 {
 		t.Errorf("first scan signing score = %v, want 100", d.Score)
 	}
 }
 
-func TestCertChangeDeductionAppliesToWeakestApp(t *testing.T) {
+func TestAuthorityNameOnlyChangeDoesNotReduceScore(t *testing.T) {
+	prev := healthyCask()
+	current := healthyCask()
+	// Same team, new certificate name (e.g. company renamed).
+	current.Apps[0].Authority = "Developer ID Application: ACME Renamed GmbH (ACME123456)"
+
+	r := Score(now, current, prev)
+	signing := dim(t, r, DimensionSigning)
+	requireScore(t, signing, 100) // reported, no deduction
+	text := findingTexts(signing)
+	if !strings.Contains(text, "Developer ID Application: ACME Inc (ACME123456) -> Developer ID Application: ACME Renamed GmbH (ACME123456)") {
+		t.Errorf("warning must print old and new authority names in plain text, got: %s", text)
+	}
+	if !strings.Contains(text, "ACME123456 unchanged") {
+		t.Errorf("warning must state the team is unchanged, got: %s", text)
+	}
+	if !HasAuthorityNameChange(r) {
+		t.Error("HasAuthorityNameChange must detect the soft warning")
+	}
+	if HasTeamChange(r) {
+		t.Error("a name-only change must not be the hard trigger")
+	}
+}
+
+func TestAuthorityChangeWithLegacySnapshotWithoutAuthorityField(t *testing.T) {
+	// Old snapshots persist no authority string: the team identifier
+	// alone must still trigger the hard detection.
+	prev := healthyCask()
+	prev.Apps[0].Authority = ""
+	current := healthyCask()
+	current.Apps[0].TeamID = "NEWT34M1D"
+	current.Apps[0].Authority = "" // not captured this run either
+
+	r := Score(now, current, prev)
+	signing := dim(t, r, DimensionSigning)
+	requireScore(t, signing, AuthorityChangeCap)
+	text := findingTexts(signing)
+	if !strings.Contains(text, "ACME123456 -> NEWT34M1D") {
+		t.Errorf("team identifiers must appear in plain text, got: %s", text)
+	}
+	if !HasTeamChange(r) {
+		t.Error("team change must be detected without authority strings")
+	}
+}
+
+func TestAuthorityChangeDeductionAppliesToWeakestApp(t *testing.T) {
 	prev := &CaskScan{
 		Token: "dual",
 		Apps: []AppScan{
@@ -150,9 +200,9 @@ func TestCertChangeDeductionAppliesToWeakestApp(t *testing.T) {
 		},
 	}
 	r := Score(now, current, prev)
-	requireScore(t, dim(t, r, DimensionSigning), CertChangeCap)
-	if !HasCertificateChange(r) {
-		t.Error("certificate change on one app must be detected")
+	requireScore(t, dim(t, r, DimensionSigning), AuthorityChangeCap)
+	if !HasTeamChange(r) {
+		t.Error("team change on one app must be detected")
 	}
 }
 
@@ -190,6 +240,39 @@ func TestCurrencyNeverGatesOverall(t *testing.T) {
 	// A stale version drags no gate: overall stays at the trust-critical minimum.
 	if r.Overall == nil || *r.Overall != 100 {
 		t.Errorf("overall = %v, want 100 (currency must never gate)", r.Overall)
+	}
+}
+
+func TestThirdPartyTapHint(t *testing.T) {
+	c := healthyCask()
+	c.TapSource = "user/mytap"
+	c.RepoDataAvailable = false // not in Homebrew core JSON API
+	r := Score(now, c, nil)
+	maintenance := dim(t, r, DimensionMaintenance)
+	requireUnknown(t, maintenance)
+	if !strings.Contains(findingTexts(maintenance), "not in Homebrew core API (tap: user/mytap)") {
+		t.Errorf("third-party tap must be reported with an explicit hint, got: %s",
+			findingTexts(maintenance))
+	}
+}
+
+func TestTransparencyStatesTCCLimitation(t *testing.T) {
+	// With facts...
+	c := healthyCask()
+	r := Score(now, c, nil)
+	text := findingTexts(dim(t, r, DimensionTransparency))
+	if !strings.Contains(text, "TCC permissions are not scanned") {
+		t.Errorf("TCC limitation must be stated with facts present, got: %s", text)
+	}
+
+	// ...and without facts.
+	r2 := Score(now, &CaskScan{Token: "bare"}, nil)
+	text2 := findingTexts(dim(t, r2, DimensionTransparency))
+	if !strings.Contains(text2, "TCC permissions are not scanned") {
+		t.Errorf("TCC limitation must be stated without facts too, got: %s", text2)
+	}
+	if !strings.Contains(text2, "no LaunchAgents or login items detected") {
+		t.Errorf("empty fact set must be stated explicitly, got: %s", text2)
 	}
 }
 

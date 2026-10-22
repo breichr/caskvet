@@ -8,12 +8,15 @@ import (
 
 // signingDimension scores code-signing state, weight 0.3.
 //
-// Rules (AGENTS.md): notarized = full. The signing certificate changing
-// since the previous snapshot is a deduction plus a warning that prints
-// the old and new team identifiers in plain text (the Bartender
-// detection). Ad-hoc/unsigned = 0 with a Gatekeeper explanation.
-// Multiple app bundles: the weakest bundle defines the dimension.
-// No app artifacts or no bundles found on disk: unknown.
+// Rules (AGENTS.md): notarized = full. A signing authority change since
+// the previous snapshot is a deduction plus a warning printing the old
+// and new authority strings (team identifier plus name) in plain text.
+// A team-identifier change is the Bartender detection and always
+// triggers the watch warning. A name-only change at the same team is
+// reported but does not reduce the score. Ad-hoc/unsigned = 0 with a
+// Gatekeeper explanation. Multiple app bundles: the weakest bundle
+// defines the dimension. No app artifacts or no bundles found on disk:
+// unknown.
 func signingDimension(current, previous *CaskScan) Dimension {
 	dim := Dimension{Name: DimensionSigning, Weight: WeightSigning}
 
@@ -46,24 +49,33 @@ func signingDimension(current, previous *CaskScan) Dimension {
 
 	worst := 100
 	for _, app := range found {
-		score, finding := appSigningScore(app)
+		appScore, finding := appSigningScore(app)
 		dim.Findings = append(dim.Findings, finding)
-		if score < worst {
-			worst = score
+		if appScore < worst {
+			worst = appScore
 		}
 	}
 	dim.Score = newScore(worst)
 
-	// The Bartender detection: compare team identifiers against the
+	// The Bartender detection: compare signing authorities against the
 	// previous snapshot and print old and new values in plain text.
-	for _, change := range certificateChanges(current, previous) {
-		dim.Findings = append(dim.Findings, Finding{
-			Severity: SeverityWarning,
-			Text: fmt.Sprintf("signing certificate changed for %s: %s -> %s",
-				change.app, change.oldTeam, change.newTeam),
-		})
-		if *dim.Score > CertChangeCap {
-			dim.Score = newScore(CertChangeCap)
+	for _, change := range authorityChanges(current, previous) {
+		if change.teamChanged {
+			dim.Findings = append(dim.Findings, Finding{
+				Severity: SeverityWarning,
+				Text: fmt.Sprintf("signing authority changed for %s: %s -> %s",
+					change.app, change.oldAuthority, change.newAuthority),
+			})
+			if *dim.Score > AuthorityChangeCap {
+				dim.Score = newScore(AuthorityChangeCap)
+			}
+		} else {
+			// Name-only change at the same team: reported, no deduction.
+			dim.Findings = append(dim.Findings, Finding{
+				Severity: SeverityWarning,
+				Text: fmt.Sprintf("signing authority name changed for %s (team %s unchanged): %s -> %s",
+					change.app, change.newTeam, change.oldAuthority, change.newAuthority),
+			})
 		}
 	}
 	return dim
@@ -104,17 +116,25 @@ func appSigningScore(app AppScan) (int, Finding) {
 	}
 }
 
-// certChange records one team-identifier change between snapshots.
-type certChange struct {
-	app              string
-	oldTeam, newTeam string
+// authorityChange records one signing-authority difference between
+// snapshots. teamChanged distinguishes the hard trigger (team
+// identifier change, the Bartender detection) from a name-only change.
+type authorityChange struct {
+	app          string
+	oldAuthority string
+	newAuthority string
+	oldTeam      string
+	newTeam      string
+	teamChanged  bool
 }
 
-// certificateChanges compares found, signed app bundles between the
-// current and previous snapshot and returns the team-identifier changes.
-// App bundles missing from either snapshot are skipped: a missing
-// certificate is unknown, not a change.
-func certificateChanges(current, previous *CaskScan) []certChange {
+// authorityChanges compares found, signed app bundles between the
+// current and previous snapshot. App bundles missing from either
+// snapshot are skipped: a missing authority is unknown, not a change.
+// Authority strings fall back to the bare team identifier when the
+// authority line was not captured, so old snapshots without the
+// authority field still detect team changes.
+func authorityChanges(current, previous *CaskScan) []authorityChange {
 	if previous == nil {
 		return nil
 	}
@@ -123,7 +143,7 @@ func certificateChanges(current, previous *CaskScan) []certChange {
 		prevApps[app.Name] = app
 	}
 
-	var changes []certChange
+	var changes []authorityChange
 	seen := make(map[string]bool)
 	for _, app := range current.Apps {
 		if !app.Found || !app.Signed || app.TeamID == "" || seen[app.Name] {
@@ -134,28 +154,58 @@ func certificateChanges(current, previous *CaskScan) []certChange {
 		if !ok || !prev.Found || !prev.Signed || prev.TeamID == "" {
 			continue
 		}
-		if app.TeamID != prev.TeamID {
-			changes = append(changes, certChange{
-				app:     app.Name,
-				oldTeam: prev.TeamID,
-				newTeam: app.TeamID,
-			})
+		if app.TeamID == prev.TeamID && app.Authority == prev.Authority {
+			continue
 		}
+		changes = append(changes, authorityChange{
+			app:          app.Name,
+			oldAuthority: authorityString(prev.Authority, prev.TeamID),
+			newAuthority: authorityString(app.Authority, app.TeamID),
+			oldTeam:      prev.TeamID,
+			newTeam:      app.TeamID,
+			teamChanged:  app.TeamID != prev.TeamID,
+		})
 	}
 	sort.Slice(changes, func(i, j int) bool { return changes[i].app < changes[j].app })
 	return changes
 }
 
-// HasCertificateChange reports whether the signing dimension produced a
-// certificate-change warning. Used by watch mode as one of the two
-// notification triggers.
-func HasCertificateChange(result Result) bool {
+// authorityString returns the authority line, falling back to the team
+// identifier when the line was not captured.
+func authorityString(authority, teamID string) string {
+	if authority != "" {
+		return authority
+	}
+	return teamID
+}
+
+// HasTeamChange reports whether any signing-authority warning with a
+// team-identifier change fired — the hard watch trigger and an
+// exit-2 condition.
+func HasTeamChange(result Result) bool {
 	for _, dim := range result.Dimensions {
 		if dim.Name != DimensionSigning {
 			continue
 		}
 		for _, f := range dim.Findings {
-			if f.Severity == SeverityWarning && strings.HasPrefix(f.Text, "signing certificate changed") {
+			if f.Severity == SeverityWarning && strings.HasPrefix(f.Text, "signing authority changed for") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasAuthorityNameChange reports whether a name-only authority change
+// warning fired: same team, new certificate name. A softer, separate
+// warning — it never reduces the score.
+func HasAuthorityNameChange(result Result) bool {
+	for _, dim := range result.Dimensions {
+		if dim.Name != DimensionSigning {
+			continue
+		}
+		for _, f := range dim.Findings {
+			if f.Severity == SeverityWarning && strings.HasPrefix(f.Text, "signing authority name changed for") {
 				return true
 			}
 		}

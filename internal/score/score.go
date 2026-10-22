@@ -6,18 +6,30 @@
 //
 // Model (AGENTS.md, exact — do not improvise):
 //
-// Four dimensions, each 0–100, with presentation weights: maintenance 0.4,
-// signing 0.3, transparency 0.2, currency 0.1. The weights are
-// presentation constants for report ordering and why-emphasis, not score
-// inputs. The overall score = min(maintenance, signing): only the two
-// trust-critical dimensions gate it. Transparency lists permissions,
-// LaunchAgents, and login items as facts — show, do not judge, no
-// sub-score. Currency is displayed and explained but never gates. Never
-// use a weighted average.
+// Four dimensions, each 0–100, with presentation weights 0.4/0.3/0.2/0.1
+// (report ordering and why-emphasis only, never score inputs). Overall
+// score = min(maintenance, signing): only the two trust-critical
+// dimensions gate it. Transparency lists facts and has no sub-score.
+// Currency is displayed and explained but never gates. Never a weighted
+// average. A dimension whose data is unavailable reports "unknown" (nil)
+// and is excluded from the gate — missing knowledge must not look like
+// risk.
 //
-// A dimension whose data is unavailable reports "unknown" (nil) and is
-// excluded from the minimum. Missing knowledge must not look like risk:
-// it must never be scored as zero.
+//   - Maintenance, weight 0.4: repository archived = 0. Last commit > 12
+//     months = hard deduction. Cask deprecated/disabled in core = 0,
+//     referencing the replacement token if Homebrew defines one.
+//   - Signing, weight 0.3: notarized = full. A signing authority change
+//     since the previous snapshot is a deduction plus a warning printing
+//     the old and new authority strings (team identifier plus name) in
+//     plain text. A team-identifier change is the Bartender detection and
+//     always triggers the watch warning. A name-only change at the same
+//     team is reported but does not reduce the score. Ad-hoc/unsigned = 0
+//     with a Gatekeeper explanation.
+//   - Transparency, weight 0.2: LaunchAgents, login items, and declared
+//     background items are listed as facts. Show, do not judge. TCC
+//     permissions are not scanned; the report states that limitation.
+//   - Currency, weight 0.1: installed version vs. latest upstream
+//     release. Weak signal only; displayed, never gating.
 package score
 
 import "time"
@@ -52,12 +64,16 @@ const (
 	SignedNotNotarizedScore = 70  // signed, Gatekeeper accepted, not notarized
 	SignedRejectedScore     = 20  // signed but Gatekeeper rejected
 	AdHocUnsignedScore      = 0   // ad-hoc or unsigned
-	CertChangeCap           = 50  // certificate changed since last snapshot
+	AuthorityChangeCap      = 50  // team identifier changed since last snapshot
 
 	// Currency: weak signal only.
 	CurrencyCurrentScore = 100
 	CurrencyStaleScore   = 70
 )
+
+// TCCLimitation is stated in every transparency dimension so the gap is
+// visible, never hidden (AGENTS.md).
+const TCCLimitation = "TCC permissions are not scanned: reading them requires privacy prompts, which a trust tool must not trigger"
 
 // Severity classifies a finding for output formatting.
 type Severity string
@@ -95,6 +111,11 @@ type CaskScan struct {
 	Token            string `json:"token"`
 	InstalledVersion string `json:"installed_version"`
 
+	// TapSource is the tap the cask came from ("homebrew/cask" for
+	// core). Third-party taps are not in the Homebrew core JSON API and
+	// report maintenance unknown with an explicit hint.
+	TapSource string `json:"tap_source,omitempty"`
+
 	// Upstream cask state (Homebrew JSON API).
 	Deprecated       bool   `json:"deprecated"`
 	Disabled         bool   `json:"disabled"`
@@ -128,9 +149,13 @@ type AppScan struct {
 	// Found is false when a declared bundle is missing from disk.
 	Found bool `json:"found"`
 
-	Signed             bool   `json:"signed"`
-	AdHoc              bool   `json:"ad_hoc"`
-	TeamID             string `json:"team_id"`
+	Signed bool   `json:"signed"`
+	AdHoc  bool   `json:"ad_hoc"`
+	TeamID string `json:"team_id"`
+	// Authority is the full signing authority string, e.g.
+	// "Developer ID Application: ACME Inc (ACME123456)". It is compared
+	// between snapshots to detect name-only authority changes.
+	Authority          string `json:"authority,omitempty"`
 	Notarized          bool   `json:"notarized"`
 	GatekeeperKnown    bool   `json:"gatekeeper_known"`
 	GatekeeperAccepted bool   `json:"gatekeeper_accepted"`
@@ -152,7 +177,7 @@ type LoginItemFact struct {
 }
 
 // Score computes the result for one cask. previous may be nil (first
-// run): certificate-change detection simply does not fire. now is
+// run): authority-change detection simply does not fire. now is
 // injected so scoring is fully deterministic.
 func Score(now time.Time, current, previous *CaskScan) Result {
 	if current == nil {
