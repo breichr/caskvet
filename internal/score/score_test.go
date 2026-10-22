@@ -180,15 +180,16 @@ func TestAdHocApp(t *testing.T) {
 	requireScore(t, dim(t, r, DimensionSigning), 0)
 }
 
-func TestNotarizedButOldVersionStillStrongOnSigning(t *testing.T) {
+func TestCurrencyNeverGatesOverall(t *testing.T) {
 	c := healthyCask()
 	c.LatestReleaseTag = "v2.0.0"
 	c.LatestReleaseKnown = true
 	r := Score(now, c, nil)
 	requireScore(t, dim(t, r, DimensionSigning), 100)
 	requireScore(t, dim(t, r, DimensionCurrency), CurrencyStaleScore)
-	if r.Overall == nil || *r.Overall != CurrencyStaleScore {
-		t.Errorf("overall = %v, want %d (min across dimensions)", r.Overall, CurrencyStaleScore)
+	// A stale version drags no gate: overall stays at the trust-critical minimum.
+	if r.Overall == nil || *r.Overall != 100 {
+		t.Errorf("overall = %v, want 100 (currency must never gate)", r.Overall)
 	}
 }
 
@@ -282,6 +283,10 @@ func TestCurrencyUnknownWhenReleaseMissing(t *testing.T) {
 	c2.InstalledVersion = ""
 	r2 := Score(now, c2, nil)
 	requireUnknown(t, dim(t, r2, DimensionCurrency))
+	// Unknown currency must not gate or zero the overall either way.
+	if r2.Overall == nil || *r2.Overall != 100 {
+		t.Errorf("overall = %v, want 100 (unknown currency excluded from gates)", r2.Overall)
+	}
 }
 
 func TestAllDimensionsUnknown(t *testing.T) {

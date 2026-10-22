@@ -6,16 +6,18 @@
 //
 // Model (AGENTS.md, exact — do not improvise):
 //
-// Four dimensions, each 0–100, with declared weights: maintenance 0.4,
-// signing 0.3, transparency 0.2, currency 0.1. The overall score is the
-// MINIMUM over the dimensions whose data is available — never an
-// average. A dimension whose data is unavailable reports "unknown"
-// (nil) and is excluded from the minimum. Missing knowledge must not
-// look like risk: it must never be scored as zero.
+// Four dimensions, each 0–100, with presentation weights: maintenance 0.4,
+// signing 0.3, transparency 0.2, currency 0.1. The weights are
+// presentation constants for report ordering and why-emphasis, not score
+// inputs. The overall score = min(maintenance, signing): only the two
+// trust-critical dimensions gate it. Transparency lists permissions,
+// LaunchAgents, and login items as facts — show, do not judge, no
+// sub-score. Currency is displayed and explained but never gates. Never
+// use a weighted average.
 //
-// Transparency is special: it lists permissions, LaunchAgents, and
-// login items as facts. Show, do not judge — it carries no sub-score
-// and is never part of the minimum.
+// A dimension whose data is unavailable reports "unknown" (nil) and is
+// excluded from the minimum. Missing knowledge must not look like risk:
+// it must never be scored as zero.
 package score
 
 import "time"
@@ -28,9 +30,8 @@ const (
 	DimensionCurrency     = "currency"
 )
 
-// Declared dimension weights (AGENTS.md). They order emphasis in the
-// report and in `why`; the overall score itself is the minimum over the
-// available dimension scores.
+// Declared presentation weights (AGENTS.md). They order emphasis in the
+// report and in `why`; they are not score inputs.
 const (
 	WeightMaintenance  = 0.4
 	WeightSigning      = 0.3
@@ -168,11 +169,15 @@ func Score(now time.Time, current, previous *CaskScan) Result {
 	result.Dimensions = append(result.Dimensions, transparencyDimension(current))
 	result.Dimensions = append(result.Dimensions, currencyDimension(current))
 
-	// Overall = minimum over dimensions with known scores.
-	// Transparency is never scored and therefore never part of it.
+	// Overall = min(maintenance, signing). Only the two trust-critical
+	// dimensions gate the overall score. Currency is displayed and
+	// explained but never gates; transparency reports facts only.
 	var overall *int
 	for _, dim := range result.Dimensions {
 		if dim.Score == nil {
+			continue
+		}
+		if dim.Name != DimensionMaintenance && dim.Name != DimensionSigning {
 			continue
 		}
 		if overall == nil || *dim.Score < *overall {

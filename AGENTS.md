@@ -32,14 +32,13 @@ Only `localscan` and `collector` do I/O. If you find yourself importing an I/O p
 
 ## Scoring model (exact, do not improvise)
 
-Four dimensions, each 0–100. Overall score = weighted MINIMUM, never an average:
+Four dimensions, each 0–100.
 
-- Maintenance, weight 0.4: repository archived = 0. Last commit > 12 months = hard deduction. Cask deprecated/disabled in core = 0, referencing the replacement token if Homebrew defines one.
-- Signing, weight 0.3: notarized = full. Signing certificate changed since the previous snapshot = deduction plus a warning that prints old and new team identifiers in plain text (the Bartender detection). Ad-hoc/unsigned = 0 with a Gatekeeper explanation.
-- Transparency, weight 0.2: list permissions, LaunchAgents, and login items. Show, do not judge. No sub-score here; report the facts.
-- Currency, weight 0.1: installed version vs. latest upstream release. Weak signal only.
-
-A dimension whose data is unavailable reports "unknown" and is excluded from the weighted minimum.
+Overall score = min(maintenance, signing). Only the two trust-critical
+dimensions gate the overall score. Transparency has no sub-score (facts
+are listed, not judged). Currency is displayed and explained but never
+gates. Weights (0.4/0.3/0.2/0.1) are presentation constants for report
+ordering and why-emphasis, not score inputs. Never use a weighted average.
 
 ## Watch-mode trigger rules
 
