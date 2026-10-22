@@ -16,11 +16,15 @@ anything. Read-only, no exceptions.
 ## Why
 
 In 2024, the popular Mac menu bar app Bartender was quietly sold to a
-new company. Users found out from a changed code-signing certificate,
-not from the vendor. The maintenance signs were all there in
-hindsight: the app kept working, but the entity behind it had changed.
+new company. The app kept working, but the entity behind it changed —
+and users found out from a changed code-signing certificate, not from
+the vendor.
 
-caskvet exists to make that visible on your machine:
+That event is exactly what caskvet detects: a **signing-authority
+change**, i.e. a new code-signing team identifier on an app you already
+installed. When it happens, watch mode prints the old and new authority
+strings in plain text and posts a notification — the score deduction
+follows.
 
 > **The Bartender case study:** an app's caskvet score dropped from
 > **94 to 41 in three days**. The signing authority change — old and
@@ -31,14 +35,18 @@ A score is never a verdict. It is a reason to look closer.
 
 ## Install
 
-From source (a binary release, an own Homebrew tap, and a core PR
-follow later on the roadmap):
+From source until the first GitHub Release exists (a binary release,
+an own Homebrew tap, and a core PR follow later on the roadmap):
 
 ```sh
 git clone https://github.com/breichr/caskvet
 cd caskvet
 go build ./cmd/caskvet
 ```
+
+<!-- TODO(brew tap): add the brew install line once homebrew-caskvet exists:
+     brew install --cask breichr/tap/caskvet
+-->
 
 The first run works with zero configuration and no token.
 
@@ -186,10 +194,13 @@ schema:
   app bundles, the Caskroom, LaunchAgent plists, and caskvet's own
   cache and snapshot directories. Posting a notification is the only
   non-read action in the entire codebase.
-- **Optional GitHub token.** For better rate limits set
-  `GITHUB_TOKEN`; without it, a scan of many casks may degrade some
-  dimensions to `unknown` (a single hint is printed at the end of the
-  run when that happens).
+- **Optional GitHub token.** Set `GITHUB_TOKEN` for better rate limits.
+  Without it, GitHub allows 60 requests per hour and a scan needs about
+  two calls per cask; when the scan hits that limit, or when the cask
+  count visibly exceeds the budget, the affected dimensions degrade to
+  `unknown` and a single hint — `set GITHUB_TOKEN for full coverage` —
+  prints once at the end of the run, never per cask. Degraded data is
+  reported as unknown, never as risk.
 
 ## Known limitations
 
@@ -200,6 +211,11 @@ Documented in the output, not hidden:
   with the hint "not in Homebrew core API" and their tap shown.
   Pulling metadata from local `brew info` instead is a later roadmap
   item.
+- **Non-GitHub homepages.** Maintenance is scored from the upstream
+  GitHub repository. Many modern casks point their homepage at a vendor
+  domain (`ghostty.org`, `linearmouse.org`, …) rather than GitHub;
+  those casks report maintenance `unknown` — never 0. In practice this
+  is the most common reason for a maintenance `unknown` in the table.
 - **TCC permissions are not scanned.** Reading them requires privacy
   prompts, which a trust tool must not trigger. Every report states
   this limitation explicitly.
