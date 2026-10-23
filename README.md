@@ -78,18 +78,18 @@ Example:
 
 ```console
 $ caskvet report
-CASK                 TAP            OVERALL  MAINT    SIGN     CURR  BG
-freecad              homebrew/cask  20       unknown  20       100   0
-libreoffice          homebrew/cask  20       unknown  20       100   0
-firefox              homebrew/cask  100      unknown  100      70    0
-ghostty              homebrew/cask  100      unknown  100      100   0
-linearmouse          homebrew/cask  100      unknown  100      100   1
-obsidian             homebrew/cask  100      unknown  100      70    0
-proton-mail          homebrew/cask  100      unknown  100      100   0
-proton-pass          homebrew/cask  100      unknown  100      100   0
-zed                  homebrew/cask  100      unknown  100      70    0
-font-jetbrains-mono  homebrew/cask  unknown  unknown  unknown  100   0
-prusaslicer          homebrew/cask  unknown  unknown  unknown  100   0
+CASK                TAP            OVERALL  MAINT    SIGN     CURR  BG
+old-signing-tool    homebrew/cask  20       unknown  20       100   0
+legacy-suite        homebrew/cask  20       unknown  20       100   0
+web-browser         homebrew/cask  100      unknown  100      70    0
+terminal-app        homebrew/cask  100      unknown  100      100   0
+input-helper        homebrew/cask  100      unknown  100      100   1
+note-taking         homebrew/cask  100      unknown  100      70    0
+mail-client         homebrew/cask  100      unknown  100      100   0
+password-manager    homebrew/cask  100      unknown  100      100   0
+code-editor         homebrew/cask  100      unknown  100      70    0
+font-pack           homebrew/cask  unknown  unknown  unknown  100   0
+missing-bundle      homebrew/cask  unknown  unknown  unknown  100   0
 ```
 
 The table lists the worst scores first, always shows the tap source,
