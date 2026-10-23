@@ -18,6 +18,7 @@ Hard product rules:
 - Go, single static binary. Module path: `github.com/breichr/caskvet`.
 - No CGO. No external daemon dependencies.
 - Build: `go build ./...`, test: `go test ./...`. Both must pass before any commit.
+- CI (.github/workflows/ci.yml) runs `go build`, `go vet`, `go test` on every push to main and on PRs; the suite is offline (fixtures and local httptest servers, no network).
 
 ## Local system interactions (complete list, strictly read-only)
 
@@ -26,7 +27,7 @@ Hard product rules:
 - `osascript` — System Events queries (read-only) and posting macOS notifications. Notification posting is the only non-read action allowed in the entire codebase.
 - File reads: app bundles, Caskroom, LaunchAgent plists, the caskvet cache and snapshot directories.
 
-Anything outside this list requires an AGENTS.md change first, agreed by the maintainers.
+Anything outside this list requires an AGENTS.md change first, agreed by the maintainers. Release tooling (goreleaser, codesign at release time, notarytool, gh) runs outside the shipped binary and is governed by the Documentation and release section, not by this runtime list.
 
 ## Architecture (do not blur boundaries)
 
@@ -75,6 +76,7 @@ caskvet report [--json]          # scan and print the table
 caskvet why <cask>               # detailed scoring justification
 caskvet watch                    # compare against last snapshot, notify on the two triggers
 caskvet install <cask>           # pre-install gate
+caskvet version | --version | -v # print the version
 ```
 
 The first run must work with zero configuration and no token. Output is a compact table; `--json` is stable schema, machine-readable, documented. When a scan hits GitHub rate limits (results degraded to unknown) or the cask count visibly exceeds the unauthenticated budget (60 req/h, ~1 call per cask: one repository fetch) with no `GITHUB_TOKEN` set, print a single "set GITHUB_TOKEN for full coverage" hint — once, at the end of the run, never per cask.
@@ -91,10 +93,10 @@ Casks installed from third-party taps are not in the Homebrew core JSON API. For
 
 ## Model-change roadmap (status; implement per the stated status)
 
-1. Currency source switch: SHIPPED-BEFORE-RELEASE (explicit spec override granted). Installed version compares against the Homebrew catalog version, not the upstream GitHub release. Contained change: collector drops the release fetch; score compares catalog versions.
+1. Currency source switch: SHIPPED (v0.1.0). Installed version compares against the Homebrew catalog version, not the upstream GitHub release. The collector dropped the release fetch; the score compares catalog versions.
 2. Third-party tap metadata via local `brew info`: SHIPPED. Implemented in localscan (not collector — brew is a local system tool).
 3. BTM background-item scan (sfltool dumpbtm): DROPPED. On the maintainers' machine `sfltool dumpbtm` requires Touch ID or an admin password — it fails the precondition (works without privileges and without prompts), and the no-prompt rule is absolute. No opt-in flags for core functionality. Do not reintroduce without a new AGENTS.md change.
-4. Last-cask-update display: SHIPPED-SPEC, display-only fact, never scored (see Transparency). Uses the casks `changed_at` field for core casks.
+4. Last-cask-update display: SHIPPED. Display-only fact, never scored (see Transparency). Sources the casks `changed_at` field for core casks. The Homebrew API currently does not populate `changed_at` (verified Oct 2026: no cask carries it); the report states "cask last tap update unknown" until Homebrew provides the field, and lights up automatically once it does.
 
 ## Testing requirements
 
@@ -105,8 +107,12 @@ Casks installed from third-party taps are not in the Homebrew core JSON API. For
 ## Documentation and release
 
 - README in English. Include the Bartender case study ("score 94 → 41 in three days, authority change visible in the diff").
-- Distribution: GitHub Releases first (signed with Developer ID, notarized), own Homebrew tap, core PR later. goreleaser or equivalent; releases are signed when the maintainers have a Developer ID.
-- FUNDING.yml with GitHub Sponsors. No feature gates, no nagware. A trust tool does not use trust tricks.
+- Distribution: GitHub Releases first (signed with Developer ID, notarized), own Homebrew tap, core PR later. Status and procedure:
+  - Releases v0.1.0+ are cut with goreleaser (darwin arm64+amd64, no CGO; a codesign post-hook signs every binary with the maintainer Developer ID, hardened runtime), then notarized with `scripts/notarize.sh` (the `caskvet-notary` keychain profile).
+  - Release sequence: commit → tag `vX.Y.Z` → `GITHUB_TOKEN=$(gh auth token) goreleaser release --clean` → `scripts/notarize.sh` → publish the draft → bump the tap formula → push the tap.
+  - Own Homebrew tap: live at `breichr/homebrew-caskvet` (`brew install breichr/caskvet/caskvet`). The formula is bumped by hand after each release; `brew audit --strict` must pass. Note: audit reads the cached tap clone under the Homebrew prefix (`Library/Taps/...`) — pull the tap before auditing after a push.
+  - Homebrew core PR: later.
+- FUNDING.yml: Buy Me a Coffee (`cbreiteneder`) — GitHub Sponsors was replaced per maintainer decision. No feature gates, no nagware. A trust tool does not use trust tricks.
 
 ## What not to build
 
