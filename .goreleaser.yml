@@ -20,7 +20,14 @@ builds:
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
-
+    hooks:
+      # Sign every built binary with the maintainer's Developer ID.
+      # Hardened runtime and a secure timestamp are required for
+      # notarization (added when Apple credentials are provided).
+      post:
+        - cmd: >-
+            codesign --sign "Developer ID Application: Christian Breiteneder (N8M53QK9TU)"
+            --timestamp --options runtime {{ .Path }}
 archives:
   - id: default
     formats: [zip]
