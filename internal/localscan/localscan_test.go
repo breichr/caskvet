@@ -61,22 +61,25 @@ func TestInstalledCasksParsesBrewList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(casks) == 0 {
-		t.Fatal("want installed casks from fixture, got none")
+	if len(casks) != 3 {
+		t.Fatal("want 3 installed casks from fixture, got", len(casks))
 	}
 	byToken := make(map[string]InstalledCask, len(casks))
 	for _, c := range casks {
 		byToken[c.Token] = c
 	}
-	ff, ok := byToken["firefox"]
+	suite, ok := byToken["example-suite"]
 	if !ok {
-		t.Fatalf("firefox missing from %v", casks)
+		t.Fatalf("example-suite missing from %v", casks)
 	}
-	if ff.Version != "158.0" {
-		t.Errorf("firefox version = %q, want 158.0", ff.Version)
+	if suite.Version != "1.2.3" {
+		t.Errorf("example-suite version = %q, want 1.2.3", suite.Version)
 	}
-	if _, ok := byToken["linearmouse"]; !ok {
-		t.Errorf("linearmouse missing from results")
+	if pinned := byToken["another-app"]; pinned.PinnedVersion != "3.1.0" {
+		t.Errorf("another-app pinned version = %q, want 3.1.0", pinned.PinnedVersion)
+	}
+	if _, ok := byToken["sample-tool"]; !ok {
+		t.Error("sample-tool missing from results")
 	}
 }
 
