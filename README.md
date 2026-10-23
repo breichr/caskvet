@@ -294,9 +294,10 @@ not trigger authentication prompts.
 ## Funding
 
 If caskvet saves you a surprise, consider buying the maintainer a
-coffee on [Buy Me a Coffee](https://www.buymeacoffee.com/cbreiteneder).
-Entirely optional — the tool has no feature gates and no nagware, and
-it never will.
+coffee. Entirely optional — the tool has no feature gates and no
+nagware, and it never will.
+
+<a href="https://www.buymeacoffee.com/cbreiteneder" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 ## License
 
