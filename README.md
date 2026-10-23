@@ -41,7 +41,13 @@ A score is never a verdict. It is a reason to look closer.
 
 ## Install
 
-Download the release for your Mac — [v0.1.0](https://github.com/breichr/caskvet/releases/tag/v0.1.0):
+With Homebrew:
+
+```sh
+brew install breichr/caskvet/caskvet
+```
+
+Or download the release for your Mac — [v0.1.0](https://github.com/breichr/caskvet/releases/tag/v0.1.0):
 
 - [caskvet_v0.1.0_darwin_arm64.zip](https://github.com/breichr/caskvet/releases/download/v0.1.0/caskvet_v0.1.0_darwin_arm64.zip) (Apple Silicon)
 - [caskvet_v0.1.0_darwin_amd64.zip](https://github.com/breichr/caskvet/releases/download/v0.1.0/caskvet_v0.1.0_darwin_amd64.zip) (Intel)
@@ -49,10 +55,6 @@ Download the release for your Mac — [v0.1.0](https://github.com/breichr/caskve
 Unzip and put the binary on your PATH. Binaries are Developer ID signed
 and notarized with Apple. Verify with `shasum -a 256 -c checksums.txt`
 using the [checksums](https://github.com/breichr/caskvet/releases/download/v0.1.0/checksums.txt).
-
-<!-- TODO(brew tap): add the brew install line once homebrew-caskvet exists:
-     brew install breichr/tap/caskvet
--->
 
 From source:
 
@@ -287,9 +289,9 @@ exit codes). Only `collector` and `localscan` perform I/O.
 
 ## Roadmap
 
-1. Homebrew tap (`homebrew-caskvet`), then a core PR later.
-2. `--version` flag and formula test conventions.
-3. Formulae support, once casks are rock-solid.
+1. `--version` flag and formula test conventions.
+2. Formulae support, once casks are rock-solid.
+3. Homebrew core PR, once the tap is established.
 
 The agreed model changes from AGENTS.md — the currency source switch
 to the Homebrew catalog version and the last-cask-update display — are
