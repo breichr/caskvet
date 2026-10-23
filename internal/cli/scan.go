@@ -87,12 +87,17 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 		}
 	}
 	repos := e.collector.GitHubRepos(ctx, repoPairs)
-	releases := e.collector.LatestReleases(ctx, repoPairs)
 
 	agents, _ := e.local.LaunchAgents()
 	loginItems, loginErr := e.local.LoginItems()
 	if loginErr != nil {
 		loginItems = nil
+	}
+	// BTM background items: display-only facts. A command failure is
+	// reported as a fact with ParseError set, never hidden.
+	btmItems, btmErr := e.local.BTMItems()
+	if btmErr != nil {
+		btmItems = []localscan.BTMItem{{ParseError: btmErr.Error()}}
 	}
 
 	outcome := &scanOutcome{scans: make(map[string]*score.CaskScan, len(installed))}
@@ -118,6 +123,12 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 			scan.DeclaredLaunchAgents = m.Meta.LaunchctlPaths
 			scan.DeclaredLoginItems = m.Meta.LoginItems
 			declared = m.Meta.AppBundles
+			scan.CatalogVersion = m.Meta.Version
+			scan.CatalogVersionFrom = "homebrew_api"
+			scan.TapChangedAt = m.Meta.ChangedAt
+			if m.Meta.ChangedAt != "" {
+				scan.TapChangedAtFrom = "homebrew_api"
+			}
 		} else if info, ok := infos[token]; ok {
 			scan.Deprecated = info.Deprecated
 			scan.Disabled = info.Disabled
@@ -126,6 +137,8 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 			scan.DeclaredLaunchAgents = info.Launchctl
 			scan.DeclaredLoginItems = info.LoginItems
 			declared = info.AppBundles
+			scan.CatalogVersion = info.Version
+			scan.CatalogVersionFrom = "brew_info"
 		}
 
 		if owner, repo, perr := collector.ParseGitHubOwnerRepo(homepages[token]); perr == nil {
@@ -136,14 +149,6 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 					scan.RepoArchived = r.RepoData.Archived
 					scan.LastCommit = r.RepoData.PushedAt
 					scan.LastCommitKnown = !r.RepoData.PushedAt.IsZero()
-				} else if errors.Is(r.Err, collector.ErrRateLimited) {
-					outcome.githubLimited = true
-				}
-			}
-			if r, ok := releases[key]; ok {
-				if r.Err == nil {
-					scan.LatestReleaseTag = r.Release.TagName
-					scan.LatestReleaseKnown = true
 				} else if errors.Is(r.Err, collector.ErrRateLimited) {
 					outcome.githubLimited = true
 				}
@@ -186,12 +191,29 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 			scan.Apps = append(scan.Apps, app)
 		}
 
-		// Transparency facts: LaunchAgents and login items that belong
-		// to this cask's app bundles or declared paths.
+		// Transparency facts: LaunchAgents, login items, and BTM
+		// background items that belong to this cask's app bundles or
+		// declared paths.
 		scan.LaunchAgents = matchLaunchAgents(agents, appPaths, scan.DeclaredLaunchAgents, e.local.Home)
 		for _, item := range loginItems {
 			if anyPathPrefix(item.Path, appPaths) {
 				scan.LoginItems = append(scan.LoginItems, score.LoginItemFact{Name: item.Name, Path: item.Path})
+			}
+		}
+		for _, item := range btmItems {
+			if btmItemMatchesApp(item, appPaths) {
+				scan.BTMItems = append(scan.BTMItems, score.BTMItemFact{
+					Name:           item.Name,
+					Type:           item.Type,
+					Identifier:     item.Identifier,
+					URL:            item.URL,
+					ExecutablePath: item.ExecutablePath,
+					DeveloperName:  item.DeveloperName,
+					TeamID:         item.TeamIdentifier,
+					Session:        item.Session,
+					Disposition:    item.Disposition,
+					ParseError:     item.ParseError,
+				})
 			}
 		}
 
@@ -251,13 +273,21 @@ func expandHome(path, home string) string {
 	return path
 }
 
+// btmItemMatchesApp reports whether a BTM item runs from inside one of
+// the cask's app bundles — attributed the same way LaunchAgents are.
+// Items with a ParseError never match: an unparseable item is never
+// attributed by guesswork.
+func btmItemMatchesApp(item localscan.BTMItem, appPaths []string) bool {
+	return anyPathPrefix(item.URL, appPaths) || anyPathPrefix(item.ExecutablePath, appPaths)
+}
+
 // tokenHintNeeded implements the GITHUB_TOKEN hint rule (AGENTS.md):
 // once per run when the scan hit GitHub rate limits, or when the cask
-// count visibly exceeds the unauthenticated budget (60 req/h, ~2 calls
-// per cask) and no token is set.
+// count visibly exceeds the unauthenticated budget (60 req/h, ~1 call
+// per cask: one repository fetch) and no token is set.
 func (o *scanOutcome) tokenHintNeeded(tokenSet bool) bool {
 	if tokenSet {
 		return false
 	}
-	return o.githubLimited || o.githubRepos*2 > 60
+	return o.githubLimited || o.githubRepos > 60
 }

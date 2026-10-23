@@ -135,11 +135,15 @@ trust-critical dimensions gate the overall score.
   team is reported but does not reduce the score. Ad-hoc/unsigned = 0
   with a Gatekeeper explanation. For multiple app bundles, the
   weakest bundle defines the dimension.
-- **Transparency (0.2)** — LaunchAgents, login items, and declared
-  background items are listed as facts. Show, do not judge: there is
-  no sub-score.
-- **Currency (0.1)** — installed version vs. latest upstream release.
-  A weak signal by design: displayed and explained, never gating.
+- **Transparency (0.2)** — LaunchAgents, login items, BTM background
+  items, and declared background items are listed as facts. Show, do
+  not judge: there is no sub-score. The cask's last update in its tap
+  is displayed too (when the Homebrew API provides the date) — a
+  packaging fact, not a vendor fact.
+- **Currency (0.1)** — installed version vs. the current version of
+  the cask in the Homebrew catalog. This is Homebrew data, not the
+  upstream release. A weak signal by design: displayed and explained,
+  never gating.
 
 **Unknown is not risk.** A dimension whose data is unavailable reports
 `unknown` and is excluded from the gate. A cask with a non-GitHub
@@ -218,11 +222,12 @@ schema:
   non-read action in the entire codebase.
 - **Optional GitHub token.** Set `GITHUB_TOKEN` for better rate limits.
   Without it, GitHub allows 60 requests per hour and a scan needs about
-  two calls per cask; when the scan hits that limit, or when the cask
-  count visibly exceeds the budget, the affected dimensions degrade to
-  `unknown` and a single hint — `set GITHUB_TOKEN for full coverage` —
-  prints once at the end of the run, never per cask. Degraded data is
-  reported as unknown, never as risk.
+  one call per cask (the upstream repository); when the scan hits that
+  limit, or when the cask count visibly exceeds the budget, the
+  affected dimensions degrade to `unknown` and a single hint —
+  `set GITHUB_TOKEN for full coverage` — prints once at the end of the
+  run, never per cask. Degraded data is reported as unknown, never as
+  risk.
 
 ## Known limitations
 
@@ -244,6 +249,13 @@ Documented in the output, not hidden:
 - **TCC permissions are not scanned.** Reading them requires privacy
   prompts, which a trust tool must not trigger. Every report states
   this limitation explicitly.
+- **BTM dump format is undocumented.** Background Task Management items
+  are parsed defensively from `sfltool dumpbtm`; unparseable records
+  are reported as facts with a parse error, never hidden, never
+  errors.
+- **Last-cask-update date.** The Homebrew API currently does not
+  populate the cask `changed_at` field; when it is absent, the report
+  states "cask last tap update unknown" instead of guessing.
 
 ## Development
 
@@ -264,14 +276,9 @@ exit codes). Only `collector` and `localscan` perform I/O.
    Developer ID signing and notarization.
 2. Formulae support, once casks are rock-solid.
 
-Agreed model changes, implemented only after the first release exists
-(see AGENTS.md):
-
-- Currency source switch: compare the installed version against the
-  current Homebrew catalog version instead of the upstream release.
-- BTM background-item scan (`sfltool`), only if it works without root
-  privileges and without privacy prompts — dropped otherwise.
-- Last-cask-update display: a displayed fact, never part of any score.
+The agreed model changes from AGENTS.md — the currency source switch
+to the Homebrew catalog version, the BTM background-item scan, and the
+last-cask-update display — are all implemented.
 
 ## License
 

@@ -35,11 +35,6 @@ func newFixtureServer(t *testing.T) *fixtureServer {
 	mux.HandleFunc("/repos/", func(w http.ResponseWriter, r *http.Request) {
 		fs.requests.Add(1)
 		rest := strings.TrimPrefix(r.URL.Path, "/repos/")
-		if strings.HasSuffix(rest, "/releases/latest") {
-			rest = strings.TrimSuffix(rest, "/releases/latest")
-			http.ServeFile(w, r, filepath.Join(root, "repos", filepath.FromSlash(rest), "release.json"))
-			return
-		}
 		http.ServeFile(w, r, filepath.Join(root, "repos", filepath.FromSlash(rest), "repo.json"))
 	})
 	fs.Server = httptest.NewServer(mux)
@@ -288,24 +283,6 @@ func TestGitHubReposBatch(t *testing.T) {
 
 	if got := results["breichr/missing"].Err; !errors.Is(got, ErrNotFound) {
 		t.Errorf("missing: want ErrNotFound, got %v", got)
-	}
-}
-
-func TestLatestRelease(t *testing.T) {
-	fs := newFixtureServer(t)
-	c := testClient(t, fs)
-
-	rel, err := c.LatestRelease(context.Background(), "breichr", "multi-app-suite")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rel.TagName != "v1.3.0" {
-		t.Errorf("tag = %q, want v1.3.0", rel.TagName)
-	}
-
-	_, err = c.LatestRelease(context.Background(), "breichr", "abandoned")
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("abandoned release: want ErrNotFound, got %v", err)
 	}
 }
 

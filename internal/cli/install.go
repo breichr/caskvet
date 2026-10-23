@@ -51,11 +51,15 @@ func (e *env) cmdInstall(ctx context.Context, args []string) int {
 		Disabled:             info.Disabled,
 		ReplacementToken:     info.Replacement,
 		Homepage:             info.Homepage,
+		CatalogVersion:       info.Version,
+		CatalogVersionFrom:   "brew_info",
 		DeclaredLaunchAgents: info.Launchctl,
 		DeclaredLoginItems:   info.LoginItems,
 	}
 
-	// Upstream repository and release data, same rules as a scan.
+	// Upstream repository data, same rules as a scan. Currency is
+	// Homebrew catalog data (brew info above), never the upstream
+	// release.
 	outcome := &scanOutcome{}
 	if owner, repo, perr := collector.ParseGitHubOwnerRepo(info.Homepage); perr == nil {
 		outcome.githubRepos = 1
@@ -64,12 +68,6 @@ func (e *env) cmdInstall(ctx context.Context, args []string) int {
 			scan.RepoArchived = r.Archived
 			scan.LastCommit = r.PushedAt
 			scan.LastCommitKnown = !r.PushedAt.IsZero()
-		} else if isRateLimited(err) {
-			outcome.githubLimited = true
-		}
-		if rel, err := e.collector.LatestRelease(ctx, owner, repo); err == nil {
-			scan.LatestReleaseTag = rel.TagName
-			scan.LatestReleaseKnown = true
 		} else if isRateLimited(err) {
 			outcome.githubLimited = true
 		}
@@ -117,8 +115,8 @@ func (e *env) cmdInstall(ctx context.Context, args []string) int {
 			}
 		}
 	}
-	if scan.LatestReleaseKnown {
-		fmt.Fprintf(e.out, "  latest release: %s\n", scan.LatestReleaseTag)
+	if scan.CatalogVersion != "" {
+		fmt.Fprintf(e.out, "  current catalog version: %s\n", scan.CatalogVersion)
 	}
 
 	if outcome.tokenHintNeeded(e.tokenSet) {

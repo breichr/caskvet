@@ -13,7 +13,9 @@ import (
 func transparencyDimension(c *CaskScan) Dimension {
 	dim := Dimension{Name: DimensionTransparency, Weight: WeightTransparency}
 
+	factCount := 0
 	for _, agent := range c.LaunchAgents {
+		factCount++
 		text := fmt.Sprintf("LaunchAgent %s (%s)", agent.Label, agent.Path)
 		if agent.RunAtLoad {
 			text += " runs at login"
@@ -24,10 +26,36 @@ func transparencyDimension(c *CaskScan) Dimension {
 		dim.Findings = append(dim.Findings, Finding{Severity: SeverityInfo, Text: text})
 	}
 	for _, item := range c.LoginItems {
+		factCount++
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
 			Text:     fmt.Sprintf("login item %s (%s)", item.Name, item.Path),
 		})
+	}
+	for _, item := range c.BTMItems {
+		factCount++
+		text := fmt.Sprintf("BTM background item %s", item.Name)
+		if item.Type != "" {
+			text += fmt.Sprintf(" (%s)", item.Type)
+		}
+		switch {
+		case item.ParseError != "":
+			text += fmt.Sprintf(" [%s]", item.ParseError)
+		case item.URL != "":
+			text += fmt.Sprintf(" at %s", item.URL)
+		case item.ExecutablePath != "":
+			text += fmt.Sprintf(" executable %s", item.ExecutablePath)
+		}
+		if item.Session != "" {
+			text += ", " + item.Session + " session"
+		}
+		if item.Disposition != "" {
+			text += fmt.Sprintf(", disposition: %s", item.Disposition)
+		}
+		if item.DeveloperName != "" || item.TeamID != "" {
+			text += fmt.Sprintf(", developer: %s (%s)", item.DeveloperName, item.TeamID)
+		}
+		dim.Findings = append(dim.Findings, Finding{Severity: SeverityInfo, Text: text})
 	}
 	if len(c.DeclaredLaunchAgents) > 0 {
 		dim.Findings = append(dim.Findings, Finding{
@@ -44,9 +72,22 @@ func transparencyDimension(c *CaskScan) Dimension {
 		})
 	}
 
+	// Last-cask-update: a display-only fact about the packaging, never
+	// about the upstream vendor, never part of any score.
+	if c.TapChangedAt != "" {
+		text := fmt.Sprintf("cask updated in tap on %s", c.TapChangedAt)
+		if c.TapChangedAtFrom != "" {
+			text += fmt.Sprintf(" (source: %s)", c.TapChangedAtFrom)
+		}
+		dim.Findings = append(dim.Findings, Finding{Severity: SeverityInfo, Text: text})
+	} else {
+		dim.Findings = append(dim.Findings, Finding{Severity: SeverityInfo,
+			Text: "cask last tap update unknown: the Homebrew API does not provide it"})
+	}
+
 	// State an empty fact set explicitly rather than showing nothing,
 	// then always state the TCC limitation so the gap is visible.
-	if len(dim.Findings) == 0 {
+	if factCount == 0 {
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
 			Text:     "no LaunchAgents or login items detected for this cask",
@@ -59,9 +100,11 @@ func transparencyDimension(c *CaskScan) Dimension {
 	return dim
 }
 
-// currencyDimension scores installed version against the latest upstream
-// release, weight 0.1. Weak signal only, by design. Unavailable data
-// (installed version or release unknown) = unknown.
+// currencyDimension scores the installed version against the current
+// version of the cask in the Homebrew catalog — Homebrew data, not the
+// upstream release (AGENTS.md). Weak signal only, by design, displayed
+// and explained but never gating. Unavailable data (installed version
+// or catalog version unknown) = unknown.
 func currencyDimension(c *CaskScan) Dimension {
 	dim := Dimension{Name: DimensionCurrency, Weight: WeightCurrency}
 
@@ -72,22 +115,22 @@ func currencyDimension(c *CaskScan) Dimension {
 		})
 		return dim
 	}
-	if !c.LatestReleaseKnown || c.LatestReleaseTag == "" {
+	if c.CatalogVersion == "" {
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
-			Text:     "latest upstream release unknown: currency not scored",
+			Text:     "current catalog version unknown: currency not scored",
 		})
 		return dim
 	}
 
 	installed := normalizeVersion(c.InstalledVersion)
-	latest := normalizeVersion(c.LatestReleaseTag)
-	if installed == latest {
+	catalog := normalizeVersion(c.CatalogVersion)
+	if installed == catalog {
 		dim.Score = newScore(CurrencyCurrentScore)
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,
-			Text: fmt.Sprintf("installed version %s matches the latest release %s",
-				c.InstalledVersion, c.LatestReleaseTag),
+			Text: fmt.Sprintf("installed version %s matches the current catalog version %s",
+				c.InstalledVersion, c.CatalogVersion),
 		})
 		return dim
 	}
@@ -95,8 +138,8 @@ func currencyDimension(c *CaskScan) Dimension {
 	dim.Score = newScore(CurrencyStaleScore)
 	dim.Findings = append(dim.Findings, Finding{
 		Severity: SeverityWarning,
-		Text: fmt.Sprintf("installed version %s is behind the latest release %s",
-			c.InstalledVersion, c.LatestReleaseTag),
+		Text: fmt.Sprintf("installed version %s is behind the current catalog version %s",
+			c.InstalledVersion, c.CatalogVersion),
 	})
 	return dim
 }

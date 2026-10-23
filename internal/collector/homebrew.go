@@ -13,15 +13,18 @@ import (
 // the "@" of versioned tokens such as "1password-cli@1".
 var tokenPattern = regexp.MustCompile(`^[a-z0-9@-]+$`)
 
-// CaskMeta is the upstream (Homebrew JSON API) view of one cask. Missing
-// upstream data stays zero-valued here; interpreting "missing" as
-// "unknown" is the score layer's job.
+// CaskMeta is the upstream (Homebrew JSON API) view of one cask.
+// Version is the current catalog version — the currency signal per
+// the scoring model, not the upstream release. Missing upstream data
+// stays zero-valued here; interpreting "missing" as "unknown" is the
+// score layer's job.
 type CaskMeta struct {
 	Token             string   `json:"token"`
 	Names             []string `json:"names"`
 	Desc              string   `json:"desc"`
 	Homepage          string   `json:"homepage"`
 	Version           string   `json:"version"`
+	ChangedAt         string   `json:"changed_at,omitempty"`
 	Deprecated        bool     `json:"deprecated"`
 	DeprecationDate   string   `json:"deprecation_date,omitempty"`
 	DeprecationReason string   `json:"deprecation_reason,omitempty"`
@@ -42,6 +45,7 @@ type rawCask struct {
 	Desc              string                       `json:"desc"`
 	Homepage          string                       `json:"homepage"`
 	Version           string                       `json:"version"`
+	ChangedAt         string                       `json:"changed_at"`
 	Deprecated        bool                         `json:"deprecated"`
 	DeprecationDate   string                       `json:"deprecation_date"`
 	DeprecationReason json.RawMessage              `json:"deprecation_reason"`
@@ -115,6 +119,7 @@ func parseCaskMeta(body []byte) (CaskMeta, error) {
 		Desc:              raw.Desc,
 		Homepage:          raw.Homepage,
 		Version:           raw.Version,
+		ChangedAt:         raw.ChangedAt,
 		Deprecated:        raw.Deprecated,
 		DeprecationDate:   raw.DeprecationDate,
 		DeprecationReason: reasonString(raw.DeprecationReason),

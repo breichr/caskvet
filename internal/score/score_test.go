@@ -33,8 +33,8 @@ func healthyCask() *CaskScan {
 			GatekeeperAccepted: true,
 			GatekeeperSource:   "Notarized Developer ID",
 		}},
-		LatestReleaseTag:   "v1.2.3",
-		LatestReleaseKnown: true,
+		CatalogVersion:     "1.2.3",
+		CatalogVersionFrom: "homebrew_api",
 	}
 }
 
@@ -232,8 +232,7 @@ func TestAdHocApp(t *testing.T) {
 
 func TestCurrencyNeverGatesOverall(t *testing.T) {
 	c := healthyCask()
-	c.LatestReleaseTag = "v2.0.0"
-	c.LatestReleaseKnown = true
+	c.CatalogVersion = "2.0.0"
 	r := Score(now, c, nil)
 	requireScore(t, dim(t, r, DimensionSigning), 100)
 	requireScore(t, dim(t, r, DimensionCurrency), CurrencyStaleScore)
@@ -356,9 +355,9 @@ func TestDeclaredAppMissingFromDisk(t *testing.T) {
 	requireUnknown(t, dim(t, r2, DimensionSigning))
 }
 
-func TestCurrencyUnknownWhenReleaseMissing(t *testing.T) {
+func TestCurrencyUnknownWhenCatalogVersionMissing(t *testing.T) {
 	c := healthyCask()
-	c.LatestReleaseKnown = false
+	c.CatalogVersion = ""
 	r := Score(now, c, nil)
 	requireUnknown(t, dim(t, r, DimensionCurrency))
 
@@ -369,6 +368,76 @@ func TestCurrencyUnknownWhenReleaseMissing(t *testing.T) {
 	// Unknown currency must not gate or zero the overall either way.
 	if r2.Overall == nil || *r2.Overall != 100 {
 		t.Errorf("overall = %v, want 100 (unknown currency excluded from gates)", r2.Overall)
+	}
+}
+
+func TestCurrencyBehindCatalogVersion(t *testing.T) {
+	// Installed behind the current Homebrew catalog version: the
+	// currency signal per the scoring model — Homebrew data, not the
+	// upstream release.
+	c := healthyCask()
+	c.InstalledVersion = "1.0.0"
+	c.CatalogVersion = "1.2.3"
+	r := Score(now, c, nil)
+	currency := dim(t, r, DimensionCurrency)
+	requireScore(t, currency, CurrencyStaleScore)
+	if !strings.Contains(findingTexts(currency), "behind the current catalog version 1.2.3") {
+		t.Errorf("finding must name the catalog version, got: %s", findingTexts(currency))
+	}
+	if r.Overall == nil || *r.Overall != 100 {
+		t.Errorf("overall = %v, want 100 (currency never gates)", r.Overall)
+	}
+}
+
+func TestBTMFactsListedNeverScored(t *testing.T) {
+	c := healthyCask()
+	c.BTMItems = []BTMItemFact{
+		{Name: "Example", Type: "app (0x2)", URL: "/Applications/Example.app",
+			DeveloperName: "ACME Inc", TeamID: "ACME123456", Session: "user",
+			Disposition: "[enabled, allowed, notified] (0xb)"},
+		{Name: "", ParseError: "unparseable BTM record", Session: "user"},
+	}
+	r := Score(now, c, nil)
+	transparent := dim(t, r, DimensionTransparency)
+	requireUnknown(t, transparent) // facts, never judged
+	text := findingTexts(transparent)
+	for _, want := range []string{
+		"BTM background item Example (app (0x2)) at /Applications/Example.app",
+		"user session",
+		"ACME Inc (ACME123456)",
+		"unparseable BTM record",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("BTM fact %q missing, got: %s", want, text)
+		}
+	}
+	if r.Overall == nil || *r.Overall != 100 {
+		t.Errorf("overall = %v, want 100: BTM facts must not gate", r.Overall)
+	}
+}
+
+func TestTapChangedAtDisplayOnly(t *testing.T) {
+	// Known changed_at: shown as a packaging fact.
+	c := healthyCask()
+	c.TapChangedAt = "2026-10-01"
+	c.TapChangedAtFrom = "homebrew_api"
+	r := Score(now, c, nil)
+	text := findingTexts(dim(t, r, DimensionTransparency))
+	if !strings.Contains(text, "cask updated in tap on 2026-10-01") {
+		t.Errorf("tap update fact missing, got: %s", text)
+	}
+
+	// Unknown (the API does not provide it today): stated, not hidden.
+	c2 := healthyCask()
+	r2 := Score(now, c2, nil)
+	text2 := findingTexts(dim(t, r2, DimensionTransparency))
+	if !strings.Contains(text2, "cask last tap update unknown") {
+		t.Errorf("unknown tap update must be stated, got: %s", text2)
+	}
+
+	// Display-only: it never moves any score in either case.
+	if r.Overall == nil || *r.Overall != 100 || r2.Overall == nil || *r2.Overall != 100 {
+		t.Error("tap-update display must not affect the overall score")
 	}
 }
 

@@ -135,12 +135,20 @@ type CaskScan struct {
 	// Transparency facts: discovered and declared background items.
 	LaunchAgents         []LaunchAgentFact `json:"launch_agents,omitempty"`
 	LoginItems           []LoginItemFact   `json:"login_items,omitempty"`
+	BTMItems             []BTMItemFact     `json:"btm_items,omitempty"`
 	DeclaredLaunchAgents []string          `json:"declared_launch_agents,omitempty"`
 	DeclaredLoginItems   []string          `json:"declared_login_items,omitempty"`
 
-	// Currency: latest upstream release.
-	LatestReleaseTag   string `json:"latest_release_tag,omitempty"`
-	LatestReleaseKnown bool   `json:"latest_release_known"`
+	// TapChangedAt is when the cask file was last updated in its tap
+	// (Homebrew API `changed_at`, core casks). Display-only: a
+	// transparency fact about the packaging, not the vendor.
+	TapChangedAt     string `json:"tap_changed_at,omitempty"`
+	TapChangedAtFrom string `json:"tap_changed_at_from,omitempty"` // "homebrew_api" when known
+
+	// Currency: the current version of the cask in the Homebrew
+	// catalog. This is Homebrew data, NOT the upstream release.
+	CatalogVersion     string `json:"catalog_version,omitempty"`
+	CatalogVersionFrom string `json:"catalog_version_from,omitempty"` // "homebrew_api" | "brew_info"
 }
 
 // AppScan is the local signing state of one app bundle.
@@ -175,6 +183,21 @@ type LaunchAgentFact struct {
 type LoginItemFact struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
+}
+
+// BTMItemFact is one Background Task Management item associated with
+// the cask's apps. A fact, never a judgment.
+type BTMItemFact struct {
+	Name           string `json:"name"`
+	Type           string `json:"type,omitempty"`
+	Identifier     string `json:"identifier,omitempty"`
+	URL            string `json:"url,omitempty"`
+	ExecutablePath string `json:"executable_path,omitempty"`
+	DeveloperName  string `json:"developer_name,omitempty"`
+	TeamID         string `json:"team_id,omitempty"`
+	Session        string `json:"session,omitempty"` // "user" | "system"
+	Disposition    string `json:"disposition,omitempty"`
+	ParseError     string `json:"parse_error,omitempty"`
 }
 
 // Score computes the result for one cask. previous may be nil (first
