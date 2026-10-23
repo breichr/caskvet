@@ -78,24 +78,20 @@ Example:
 
 ```console
 $ caskvet report
-CASK                TAP            OVERALL  MAINT    SIGN     CURR  BG
-old-signing-tool    homebrew/cask  20       unknown  20       100   0
-legacy-suite        homebrew/cask  20       unknown  20       100   0
-web-browser         homebrew/cask  100      unknown  100      70    0
-terminal-app        homebrew/cask  100      unknown  100      100   0
-input-helper        homebrew/cask  100      unknown  100      100   1
-note-taking         homebrew/cask  100      unknown  100      70    0
-mail-client         homebrew/cask  100      unknown  100      100   0
-password-manager    homebrew/cask  100      unknown  100      100   0
-code-editor         homebrew/cask  100      unknown  100      70    0
-font-pack           homebrew/cask  unknown  unknown  unknown  100   0
-missing-bundle      homebrew/cask  unknown  unknown  unknown  100   0
+CASK                 TAP            OVERALL  MAINT    SIGN     CURR  BG
+anybar               homebrew/cask  0        100      0        100   0
+freecad              homebrew/cask  20       unknown  20       100   0
+androidtool          homebrew/cask  30       30       100      100   0
+firefox              homebrew/cask  100      unknown  100      70    0
+linearmouse          homebrew/cask  100      unknown  100      100   1
+font-jetbrains-mono  homebrew/cask  unknown  unknown  unknown  100   0
 ```
 
 The table lists the worst scores first, always shows the tap source,
 and prints `unknown` wherever data was unavailable — never a guessed
 number. The `BG` column counts background items (LaunchAgents and
-login items) associated with the cask.
+login items) associated with the cask. Every line above is a real
+captured scan; the table below decodes each row.
 
 `caskvet why <cask>` prints the full justification: every dimension's
 score and the facts behind it. A real scan — the upstream project is
