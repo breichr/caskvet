@@ -102,10 +102,23 @@ func appSigningScore(app AppScan) (int, Finding) {
 				app.Name, app.GatekeeperSource, app.TeamID),
 		}
 	case app.GatekeeperKnown && !app.GatekeeperAccepted:
+		var parts []string
+		if app.GatekeeperSource != "" {
+			parts = append(parts, "source: "+app.GatekeeperSource)
+		}
+		if app.TeamID != "" {
+			parts = append(parts, "team: "+app.TeamID)
+		}
+		text := fmt.Sprintf("Gatekeeper rejects %s", app.Name)
+		if len(parts) > 0 {
+			text += " (" + strings.Join(parts, ", ") + ")"
+		}
+		if app.GatekeeperMessage != "" {
+			text += ": " + app.GatekeeperMessage
+		}
 		return SignedRejectedScore, Finding{
 			Severity: SeverityWarning,
-			Text: fmt.Sprintf("Gatekeeper rejects %s (source: %s, team %s)",
-				app.Name, app.GatekeeperSource, app.TeamID),
+			Text:     text,
 		}
 	default:
 		return SignedNotNotarizedScore, Finding{

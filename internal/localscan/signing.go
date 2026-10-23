@@ -107,7 +107,9 @@ func (s *Scanner) Gatekeeper(appPath string) (GatekeeperInfo, error) {
 }
 
 // ParseGatekeeperOutput decodes spctl -a -vv text. It is pure and tested
-// against recorded fixture output.
+// against recorded fixture output. The assessment line has the form
+// "<path>: <verdict or reason>": "accepted", "rejected", or a reason
+// such as "a sealed resource is missing or invalid".
 func ParseGatekeeperOutput(text string) GatekeeperInfo {
 	var info GatekeeperInfo
 	for _, line := range lines(text) {
@@ -116,8 +118,10 @@ func ParseGatekeeperOutput(text string) GatekeeperInfo {
 			info.Source = strings.TrimPrefix(line, "source=")
 		case strings.HasPrefix(line, "origin="):
 			info.Origin = strings.TrimPrefix(line, "origin=")
-		case strings.HasSuffix(line, ": accepted") || strings.HasSuffix(line, ": rejected"):
-			info.Message = line
+		case !strings.Contains(line, "=") && strings.Contains(line, ": "):
+			if info.Message == "" {
+				info.Message = line
+			}
 			info.Accepted = strings.HasSuffix(line, ": accepted")
 		}
 	}

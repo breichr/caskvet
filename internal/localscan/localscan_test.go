@@ -198,6 +198,19 @@ func TestParseGatekeeperOutput(t *testing.T) {
 			t.Errorf("Source = %q", info.Source)
 		}
 	})
+
+	t.Run("sealed-resource-rejection", func(t *testing.T) {
+		// spctl prints no ": rejected" suffix for this verdict — only the
+		// path line with the reason. The reason must be captured as the
+		// message so the score layer can surface it.
+		info := ParseGatekeeperOutput("/Applications/Example.app: a sealed resource is missing or invalid")
+		if info.Accepted {
+			t.Error("Accepted = true, want false")
+		}
+		if info.Message != "/Applications/Example.app: a sealed resource is missing or invalid" {
+			t.Errorf("Message = %q", info.Message)
+		}
+	})
 }
 
 func TestGatekeeperRejectionIsAResultNotAnError(t *testing.T) {

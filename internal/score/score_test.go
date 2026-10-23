@@ -457,8 +457,34 @@ func TestSignedRejectedByGatekeeper(t *testing.T) {
 	c.Apps[0].Notarized = false
 	c.Apps[0].GatekeeperAccepted = false
 	c.Apps[0].GatekeeperSource = "Unnotarized Developer ID"
+	c.Apps[0].GatekeeperMessage = "/Applications/Example.app: rejected"
 	r := Score(now, c, nil)
 	requireScore(t, dim(t, r, DimensionSigning), SignedRejectedScore)
+	text := findingTexts(dim(t, r, DimensionSigning))
+	if !strings.Contains(text, "Gatekeeper rejects Example.app (source: Unnotarized Developer ID, team: ACME123456): /Applications/Example.app: rejected") {
+		t.Errorf("rejection finding must name source, team, and Gatekeeper message, got: %s", text)
+	}
+}
+
+func TestSignedRejectedWithSealedResourceMessage(t *testing.T) {
+	// The self-modifying-bundle case (e.g. apps writing __pycache__ into
+	// their own bundle after signing): spctl prints no source line, only
+	// the verdict. The finding must stay clean without an empty source
+	// and must surface the actual Gatekeeper message.
+	c := healthyCask()
+	c.Apps[0].Notarized = false
+	c.Apps[0].GatekeeperAccepted = false
+	c.Apps[0].GatekeeperSource = ""
+	c.Apps[0].GatekeeperMessage = "a sealed resource is missing or invalid"
+	r := Score(now, c, nil)
+	requireScore(t, dim(t, r, DimensionSigning), SignedRejectedScore)
+	text := findingTexts(dim(t, r, DimensionSigning))
+	if !strings.Contains(text, "Gatekeeper rejects Example.app (team: ACME123456): a sealed resource is missing or invalid") {
+		t.Errorf("sealed-resource rejection must print the Gatekeeper message, got: %s", text)
+	}
+	if strings.Contains(text, "source: ,") {
+		t.Errorf("empty Gatekeeper source must not leave dangling text, got: %s", text)
+	}
 }
 
 func TestGatekeeperUnknownIsNotARiskVerdict(t *testing.T) {

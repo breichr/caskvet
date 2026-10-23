@@ -167,7 +167,11 @@ type AppScan struct {
 	Notarized          bool   `json:"notarized"`
 	GatekeeperKnown    bool   `json:"gatekeeper_known"`
 	GatekeeperAccepted bool   `json:"gatekeeper_accepted"`
-	GatekeeperSource   string `json:"gatekeeper_source"`
+	GatekeeperSource   string `json:"gatekeeper_source,omitempty"`
+	// GatekeeperMessage is the raw spctl verdict line, e.g.
+	// "a sealed resource is missing or invalid". It explains WHY
+	// Gatekeeper rejected a bundle and is surfaced in the finding.
+	GatekeeperMessage string `json:"gatekeeper_message,omitempty"`
 }
 
 // LaunchAgentFact is one LaunchAgent associated with the cask's apps.

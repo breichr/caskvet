@@ -179,6 +179,7 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 					app.GatekeeperKnown = true
 					app.GatekeeperAccepted = gk.Accepted
 					app.GatekeeperSource = gk.Source
+					app.GatekeeperMessage = gk.Message
 					app.Notarized = gk.Notarized()
 				}
 			}
