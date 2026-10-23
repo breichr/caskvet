@@ -97,9 +97,31 @@ and prints `unknown` wherever data was unavailable — never a guessed
 number. The `BG` column counts background items (LaunchAgents and
 login items) associated with the cask.
 
-`caskvet why linearmouse` prints the full justification: every
-dimension's score and the facts behind it, including signing team
-identifiers and every background item found.
+`caskvet why <cask>` prints the full justification: every dimension's
+score and the facts behind it. A real scan — the upstream project is
+actively maintained (maintenance from real GitHub data) but ships an
+unsigned app, so the signing gate floors the overall score:
+
+```console
+$ caskvet why anybar
+caskvet: anybar (tap: homebrew/cask)
+overall: 0 (min of maintenance and signing)
+installed version: 0.2.3
+
+maintenance (weight 0.4): 100
+  [info] last upstream commit was 7 months ago
+
+signing (weight 0.3): 0
+  [warning] AnyBar.app is not signed (ad-hoc or unsigned): Gatekeeper blocks first-run unless the user overrides it explicitly
+
+transparency (weight 0.2): unknown
+  [info] cask last tap update unknown: the Homebrew API does not provide it
+  [info] no LaunchAgents or login items detected for this cask
+  [info] TCC permissions are not scanned: reading them requires privacy prompts, which a trust tool must not trigger
+
+currency (weight 0.1): 100
+  [info] installed version 0.2.3 matches the current catalog version 0.2.3
+```
 
 ### Pre-install gate
 
