@@ -485,6 +485,20 @@ func TestThirdPartyTapGitHubHomepageScoresMaintenance(t *testing.T) {
 	}
 }
 
+func TestVersionFlag(t *testing.T) {
+	h, out, errOut := newHarness(t)
+
+	for _, arg := range []string{"version", "--version", "-v"} {
+		if code := Run([]string{arg}, h.buildOptions()); code != ExitOK {
+			t.Errorf("%s: exit = %d, want 0 (stderr: %s)", arg, code, errOut.String())
+		}
+	}
+	text := out.String()
+	if !strings.Contains(text, "caskvet "+version) {
+		t.Errorf("version output must name the build version %q, got: %s", version, text)
+	}
+}
+
 func TestUsageErrors(t *testing.T) {
 	h, _, errOut := newHarness(t)
 

@@ -11,6 +11,3 @@ import (
 func main() {
 	os.Exit(cli.Run(os.Args[1:], cli.Options{}))
 }
-
-// version is overridden at build time by the release tooling.
-var version = "dev"

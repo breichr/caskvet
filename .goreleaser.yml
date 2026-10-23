@@ -19,7 +19,7 @@ builds:
       - amd64
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
+      - -X github.com/breichr/caskvet/internal/cli.version={{.Version}}
     hooks:
       # Sign every built binary with the maintainer's Developer ID.
       # Hardened runtime and a secure timestamp are required for

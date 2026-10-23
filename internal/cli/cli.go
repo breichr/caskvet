@@ -116,6 +116,10 @@ func newEnv(o Options) (*env, error) {
 	}, nil
 }
 
+// version is overridden at build time by the release tooling
+// (goreleaser injects the tag via -ldflags).
+var version = "dev"
+
 // Run parses arguments and executes the command, returning the process
 // exit code.
 func Run(args []string, o Options) int {
@@ -132,6 +136,9 @@ func Run(args []string, o Options) int {
 	ctx := context.Background()
 
 	switch args[0] {
+	case "version", "--version", "-v":
+		fmt.Fprintf(e.out, "caskvet %s\n", version)
+		return ExitOK
 	case "help", "--help", "-h":
 		printUsage(e.out)
 		return ExitOK
@@ -157,7 +164,8 @@ Usage:
   caskvet report [--json]    scan and print the report table
   caskvet why <cask>         detailed scoring justification for one cask
   caskvet watch              compare against the last snapshot, notify on triggers
-  caskvet install <cask>     pre-install gate (later roadmap stage)
+  caskvet install <cask>     pre-install gate (read-only check)
+  caskvet version            print the version
   caskvet help               this help
 
 Exit codes: 0 = ok, 1 = config/usage error, 2 = scan completed with at-risk findings.
