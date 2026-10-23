@@ -35,18 +35,26 @@ A score is never a verdict. It is a reason to look closer.
 
 ## Install
 
-From source until the first GitHub Release exists (a binary release,
-an own Homebrew tap, and a core PR follow later on the roadmap):
+Download the release for your Mac — [v0.1.0](https://github.com/breichr/caskvet/releases/tag/v0.1.0):
+
+- [caskvet_v0.1.0_darwin_arm64.zip](https://github.com/breichr/caskvet/releases/download/v0.1.0/caskvet_v0.1.0_darwin_arm64.zip) (Apple Silicon)
+- [caskvet_v0.1.0_darwin_amd64.zip](https://github.com/breichr/caskvet/releases/download/v0.1.0/caskvet_v0.1.0_darwin_amd64.zip) (Intel)
+
+Unzip and put the binary on your PATH. Binaries are Developer ID signed
+and notarized with Apple. Verify with `shasum -a 256 -c checksums.txt`
+using the [checksums](https://github.com/breichr/caskvet/releases/download/v0.1.0/checksums.txt).
+
+<!-- TODO(brew tap): add the brew install line once homebrew-caskvet exists:
+     brew install breichr/tap/caskvet
+-->
+
+From source:
 
 ```sh
 git clone https://github.com/breichr/caskvet
 cd caskvet
 go build ./cmd/caskvet
 ```
-
-<!-- TODO(brew tap): add the brew install line once homebrew-caskvet exists:
-     brew install --cask breichr/tap/caskvet
--->
 
 The first run works with zero configuration and no token.
 
@@ -273,9 +281,9 @@ exit codes). Only `collector` and `localscan` perform I/O.
 
 ## Roadmap
 
-1. First binary release: goreleaser run, the `homebrew-caskvet` tap,
-   Developer ID signing and notarization.
-2. Formulae support, once casks are rock-solid.
+1. Homebrew tap (`homebrew-caskvet`), then a core PR later.
+2. `--version` flag and formula test conventions.
+3. Formulae support, once casks are rock-solid.
 
 The agreed model changes from AGENTS.md — the currency source switch
 to the Homebrew catalog version and the last-cask-update display — are
