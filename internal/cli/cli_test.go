@@ -303,61 +303,6 @@ func TestWhyKnownAndUnknownCask(t *testing.T) {
 	}
 }
 
-func TestBTMItemsAttributedToCask(t *testing.T) {
-	h, out, _ := newHarness(t)
-	// A BTM app item registered for the cask's app bundle, plus a
-	// system-session item that must not be attributed.
-	h.runner.responses["sfltool dumpbtm"] = localscan.Output{
-		Stdout: `========================
- Records for UID 0 : FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000000
-========================
-
- Items:
-
- #1:
-                 UUID: 11111111-1111-1111-1111-111111111111
-                 Name: SysThing
-                 Type: app (0x2)
-           Identifier: 2.com.example.systhing
-                  URL: /Applications/SysThing.app
-
-========================
- Records for UID 501 : FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000501
-========================
-
- Items:
-
- #2:
-                 UUID: 22222222-2222-2222-2222-222222222222
-                 Name: Example
-       Developer Name: ACME Inc
-      Team Identifier: ACME123456
-                 Type: app (0x2)
-          Disposition: [enabled, allowed, notified] (0xb)
-           Identifier: 2.com.acme.example
-                  URL: ` + h.appPath + `
-`,
-	}
-
-	if code := Run([]string{"why", "example"}, h.buildOptions()); code != ExitOK {
-		t.Fatalf("exit = %d, output: %s%s", code, h.out.String(), h.errOut.String())
-	}
-	text := out.String()
-	if !strings.Contains(text, "BTM background item Example") {
-		t.Errorf("BTM item for the cask's app must be attributed, got: %s", text)
-	}
-	if !strings.Contains(text, "ACME Inc (ACME123456)") {
-		t.Errorf("BTM item must show developer and team, got: %s", text)
-	}
-	if strings.Contains(text, "SysThing") {
-		t.Errorf("BTM items of other apps must not be attributed to this cask, got: %s", text)
-	}
-	// BTM items are facts: they never gate.
-	if !strings.Contains(text, "overall: 100") {
-		t.Errorf("overall = changed by BTM facts? got: %s", text)
-	}
-}
-
 func TestWatchFirstRunWritesBaselineWithoutNotifications(t *testing.T) {
 	h, out, errOut := newHarness(t)
 

@@ -93,12 +93,6 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 	if loginErr != nil {
 		loginItems = nil
 	}
-	// BTM background items: display-only facts. A command failure is
-	// reported as a fact with ParseError set, never hidden.
-	btmItems, btmErr := e.local.BTMItems()
-	if btmErr != nil {
-		btmItems = []localscan.BTMItem{{ParseError: btmErr.Error()}}
-	}
 
 	outcome := &scanOutcome{scans: make(map[string]*score.CaskScan, len(installed))}
 	outcome.githubRepos = len(repoPairs)
@@ -191,29 +185,12 @@ func (e *env) scan(ctx context.Context, previous map[string]*score.CaskScan) (*s
 			scan.Apps = append(scan.Apps, app)
 		}
 
-		// Transparency facts: LaunchAgents, login items, and BTM
-		// background items that belong to this cask's app bundles or
-		// declared paths.
+		// Transparency facts: LaunchAgents and login items that belong
+		// to this cask's app bundles or declared paths.
 		scan.LaunchAgents = matchLaunchAgents(agents, appPaths, scan.DeclaredLaunchAgents, e.local.Home)
 		for _, item := range loginItems {
 			if anyPathPrefix(item.Path, appPaths) {
 				scan.LoginItems = append(scan.LoginItems, score.LoginItemFact{Name: item.Name, Path: item.Path})
-			}
-		}
-		for _, item := range btmItems {
-			if btmItemMatchesApp(item, appPaths) {
-				scan.BTMItems = append(scan.BTMItems, score.BTMItemFact{
-					Name:           item.Name,
-					Type:           item.Type,
-					Identifier:     item.Identifier,
-					URL:            item.URL,
-					ExecutablePath: item.ExecutablePath,
-					DeveloperName:  item.DeveloperName,
-					TeamID:         item.TeamIdentifier,
-					Session:        item.Session,
-					Disposition:    item.Disposition,
-					ParseError:     item.ParseError,
-				})
 			}
 		}
 
@@ -271,14 +248,6 @@ func expandHome(path, home string) string {
 		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 	}
 	return path
-}
-
-// btmItemMatchesApp reports whether a BTM item runs from inside one of
-// the cask's app bundles — attributed the same way LaunchAgents are.
-// Items with a ParseError never match: an unparseable item is never
-// attributed by guesswork.
-func btmItemMatchesApp(item localscan.BTMItem, appPaths []string) bool {
-	return anyPathPrefix(item.URL, appPaths) || anyPathPrefix(item.ExecutablePath, appPaths)
 }
 
 // tokenHintNeeded implements the GITHUB_TOKEN hint rule (AGENTS.md):

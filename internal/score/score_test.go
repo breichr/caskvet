@@ -389,33 +389,6 @@ func TestCurrencyBehindCatalogVersion(t *testing.T) {
 	}
 }
 
-func TestBTMFactsListedNeverScored(t *testing.T) {
-	c := healthyCask()
-	c.BTMItems = []BTMItemFact{
-		{Name: "Example", Type: "app (0x2)", URL: "/Applications/Example.app",
-			DeveloperName: "ACME Inc", TeamID: "ACME123456", Session: "user",
-			Disposition: "[enabled, allowed, notified] (0xb)"},
-		{Name: "", ParseError: "unparseable BTM record", Session: "user"},
-	}
-	r := Score(now, c, nil)
-	transparent := dim(t, r, DimensionTransparency)
-	requireUnknown(t, transparent) // facts, never judged
-	text := findingTexts(transparent)
-	for _, want := range []string{
-		"BTM background item Example (app (0x2)) at /Applications/Example.app",
-		"user session",
-		"ACME Inc (ACME123456)",
-		"unparseable BTM record",
-	} {
-		if !strings.Contains(text, want) {
-			t.Errorf("BTM fact %q missing, got: %s", want, text)
-		}
-	}
-	if r.Overall == nil || *r.Overall != 100 {
-		t.Errorf("overall = %v, want 100: BTM facts must not gate", r.Overall)
-	}
-}
-
 func TestTapChangedAtDisplayOnly(t *testing.T) {
 	// Known changed_at: shown as a packaging fact.
 	c := healthyCask()

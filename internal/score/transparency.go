@@ -32,31 +32,6 @@ func transparencyDimension(c *CaskScan) Dimension {
 			Text:     fmt.Sprintf("login item %s (%s)", item.Name, item.Path),
 		})
 	}
-	for _, item := range c.BTMItems {
-		factCount++
-		text := fmt.Sprintf("BTM background item %s", item.Name)
-		if item.Type != "" {
-			text += fmt.Sprintf(" (%s)", item.Type)
-		}
-		switch {
-		case item.ParseError != "":
-			text += fmt.Sprintf(" [%s]", item.ParseError)
-		case item.URL != "":
-			text += fmt.Sprintf(" at %s", item.URL)
-		case item.ExecutablePath != "":
-			text += fmt.Sprintf(" executable %s", item.ExecutablePath)
-		}
-		if item.Session != "" {
-			text += ", " + item.Session + " session"
-		}
-		if item.Disposition != "" {
-			text += fmt.Sprintf(", disposition: %s", item.Disposition)
-		}
-		if item.DeveloperName != "" || item.TeamID != "" {
-			text += fmt.Sprintf(", developer: %s (%s)", item.DeveloperName, item.TeamID)
-		}
-		dim.Findings = append(dim.Findings, Finding{Severity: SeverityInfo, Text: text})
-	}
 	if len(c.DeclaredLaunchAgents) > 0 {
 		dim.Findings = append(dim.Findings, Finding{
 			Severity: SeverityInfo,

@@ -24,7 +24,6 @@ Hard product rules:
 - `brew` — only list, prefix, and info invocations, always read-only.
 - `codesign`, `spctl` — verification and assessment parsing.
 - `osascript` — System Events queries (read-only) and posting macOS notifications. Notification posting is the only non-read action allowed in the entire codebase.
-- `sfltool` — `dumpbtm` only, read-only, no root. Parses Background Task Management registrations (the modern replacement for many LaunchAgents). The dump format is undocumented by Apple and varies between macOS versions: parse defensively, treat unparseable records as facts with ParseError set (same pattern as LaunchAgent plists), never as errors.
 - File reads: app bundles, Caskroom, LaunchAgent plists, the caskvet cache and snapshot directories.
 
 Anything outside this list requires an AGENTS.md change first, agreed by the maintainers.
@@ -34,7 +33,7 @@ Anything outside this list requires an AGENTS.md change first, agreed by the mai
 Four packages, strictly separated:
 
 - `internal/collector` — network only: Homebrew JSON API and GitHub REST API access. Batching, caching (XDG config dir, JSON, ETag/304 revalidation), optional GitHub token via `GITHUB_TOKEN` env, rate-limit friendly. No scoring logic here, no local system tools — local tools belong to localscan even when they serve metadata (e.g. `brew info` for third-party taps).
-- `internal/localscan` — macOS local state: `brew` invocations (list, info, prefix), `codesign`/`spctl` output parsing, LaunchAgent, login-item, and BTM discovery, app bundle location. The only package allowed to touch the filesystem and system tools outside its cache.
+- `internal/localscan` — macOS local state: `brew` invocations (list, info, prefix), `codesign`/`spctl` output parsing, LaunchAgent and login-item discovery, app bundle location. The only package allowed to touch the filesystem and system tools outside its cache.
 - `internal/score` — pure functions from a scan snapshot to scores. No I/O at all. Fully unit-tested.
 - `cmd/caskvet` + `internal/cli` — argument parsing, output formatting (table, `--json`), watch/snapshot diffing, macOS notification hook, exit codes defined centrally in one place (never scattered os.Exit calls).
 
@@ -50,7 +49,7 @@ Overall score = min(maintenance, signing). Only the two trust-critical dimension
 
 - Maintenance, weight 0.4: repository archived = 0. Last commit > 12 months = hard deduction. Cask deprecated/disabled in core = 0, referencing the replacement token if Homebrew defines one.
 - Signing, weight 0.3: notarized = full. Signing authority changed since the previous snapshot = deduction plus a warning that prints old and new authority strings (team identifier plus name) in plain text. A team-identifier change is the Bartender detection and always triggers the watch warning. A name-only change at the same team is reported but does not reduce the score. Ad-hoc/unsigned = 0 with a Gatekeeper explanation.
-- Transparency, weight 0.2: list LaunchAgents, login items, BTM background items, and declared background items. Show, do not judge. No sub-score here; report the facts. Last-cask-update (display-only): caskvet reports when the cask's file was last updated in its tap, sourced from the Homebrew API (casks `changed_at` field) for core casks. This is a transparency fact about the packaging, NOT about the upstream vendor: a stale cask can mean a slow maintainer, not a dead app. It MUST NOT enter any score, the gate, exit-2 logic, or watch triggers. It is displayed like LaunchAgents: shown, never judged. TCC permissions are NOT scanned (reading them requires privacy prompts, which a trust tool must not trigger); the report states this limitation explicitly so the gap is visible.
+- Transparency, weight 0.2: list LaunchAgents, login items, and declared background items. Show, do not judge. No sub-score here; report the facts. Last-cask-update (display-only): caskvet reports when the cask's file was last updated in its tap, sourced from the Homebrew API (casks `changed_at` field) for core casks. This is a transparency fact about the packaging, NOT about the upstream vendor: a stale cask can mean a slow maintainer, not a dead app. It MUST NOT enter any score, the gate, exit-2 logic, or watch triggers. It is displayed like LaunchAgents: shown, never judged. TCC permissions are NOT scanned (reading them requires privacy prompts, which a trust tool must not trigger); the report states this limitation explicitly so the gap is visible.
 - Currency, weight 0.1: installed version vs. the current version of the cask in the Homebrew catalog. This is Homebrew data (the same cask JSON the collector already fetches), NOT the latest upstream GitHub release. Weak signal only; displayed, never gating. Up-to-date = full; installed version behind the cask's current version = deduction. Unknown catalog version = unknown, not scored.
 
 A dimension whose data is unavailable reports "unknown" and is excluded from the gate. Missing knowledge must not look like risk.
@@ -88,20 +87,20 @@ Casks installed from third-party taps are not in the Homebrew core JSON API. For
 
 - TCC permissions are not scanned (see Transparency above).
 - Maintenance is unknown for casks whose upstream is not identifiable as a GitHub repository (non-GitHub homepages). Do NOT auto-attribute repositories via GitHub search — a wrong mapping creates false trust. Any repo mapping beyond homepage parsing must be explicit and visible in the output.
-- The BTM dump format is undocumented and varies between macOS versions; BTM parsing degrades to facts-with-ParseError, never to errors.
+- Background Task Management (BTM) items are not scanned: `sfltool dumpbtm` requires Touch ID or an admin password on the maintainers' machine, and a trust tool must not trigger authentication prompts. The report states this gap so it is visible.
 
 ## Model-change roadmap (status; implement per the stated status)
 
 1. Currency source switch: SHIPPED-BEFORE-RELEASE (explicit spec override granted). Installed version compares against the Homebrew catalog version, not the upstream GitHub release. Contained change: collector drops the release fetch; score compares catalog versions.
 2. Third-party tap metadata via local `brew info`: SHIPPED. Implemented in localscan (not collector — brew is a local system tool).
-3. BTM background-item scan (sfltool dumpbtm): UNBLOCKED — verified on a real Mac: exits 0 without root and without privacy prompts. Implement in localscan; map BTM items to their owning app bundle, attribute them to casks the same way LaunchAgents are attributed. Display-only fact.
+3. BTM background-item scan (sfltool dumpbtm): DROPPED. On the maintainers' machine `sfltool dumpbtm` requires Touch ID or an admin password — it fails the precondition (works without privileges and without prompts), and the no-prompt rule is absolute. No opt-in flags for core functionality. Do not reintroduce without a new AGENTS.md change.
 4. Last-cask-update display: SHIPPED-SPEC, display-only fact, never scored (see Transparency). Uses the casks `changed_at` field for core casks.
 
 ## Testing requirements
 
 - `internal/score` has 100% deterministic unit tests including: archived repo, stale repo (>12 months), authority change between snapshots (team change and name-only change), unsigned app, unknown-source cask, deprecated cask with replacement token, currency 0 must NOT gate, transparency facts must NOT gate.
 - `internal/collector` and `internal/localscan` are tested against recorded fixture data (JSON and command output files under `testdata/`), never against live APIs in CI.
-- Edge cases that MUST have tests: casks with multiple apps, casks without app artifacts, apps not in /Applications, non-GitHub homepages (unknown, not 0), offline behavior (last snapshot + date, no crash), manually replaced app bundles, third-party-tap casks (local metadata path), currency behind catalog version, BTM records with unparseable content (ParseError set, scan continues), user-session vs system-level BTM records.
+- Edge cases that MUST have tests: casks with multiple apps, casks without app artifacts, apps not in /Applications, non-GitHub homepages (unknown, not 0), offline behavior (last snapshot + date, no crash), manually replaced app bundles, third-party-tap casks (local metadata path), currency behind catalog version.
 
 ## Documentation and release
 

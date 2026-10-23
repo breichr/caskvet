@@ -135,11 +135,11 @@ trust-critical dimensions gate the overall score.
   team is reported but does not reduce the score. Ad-hoc/unsigned = 0
   with a Gatekeeper explanation. For multiple app bundles, the
   weakest bundle defines the dimension.
-- **Transparency (0.2)** — LaunchAgents, login items, BTM background
-  items, and declared background items are listed as facts. Show, do
-  not judge: there is no sub-score. The cask's last update in its tap
-  is displayed too (when the Homebrew API provides the date) — a
-  packaging fact, not a vendor fact.
+- **Transparency (0.2)** — LaunchAgents, login items, and declared
+  background items are listed as facts. Show, do not judge: there is
+  no sub-score. The cask's last update in its tap is displayed too
+  (when the Homebrew API provides the date) — a packaging fact, not a
+  vendor fact.
 - **Currency (0.1)** — installed version vs. the current version of
   the cask in the Homebrew catalog. This is Homebrew data, not the
   upstream release. A weak signal by design: displayed and explained,
@@ -249,10 +249,11 @@ Documented in the output, not hidden:
 - **TCC permissions are not scanned.** Reading them requires privacy
   prompts, which a trust tool must not trigger. Every report states
   this limitation explicitly.
-- **BTM dump format is undocumented.** Background Task Management items
-  are parsed defensively from `sfltool dumpbtm`; unparseable records
-  are reported as facts with a parse error, never hidden, never
-  errors.
+- **BTM items are not scanned.** `sfltool dumpbtm` requires Touch ID or
+  an admin password on the maintainers' machine; a trust tool must not
+  trigger authentication prompts, so the feature is dropped rather
+  than gated behind a flag. The report states this gap so it is
+  visible.
 - **Last-cask-update date.** The Homebrew API currently does not
   populate the cask `changed_at` field; when it is absent, the report
   states "cask last tap update unknown" instead of guessing.
@@ -277,8 +278,10 @@ exit codes). Only `collector` and `localscan` perform I/O.
 2. Formulae support, once casks are rock-solid.
 
 The agreed model changes from AGENTS.md — the currency source switch
-to the Homebrew catalog version, the BTM background-item scan, and the
-last-cask-update display — are all implemented.
+to the Homebrew catalog version and the last-cask-update display — are
+implemented. The BTM background-item scan was dropped: `sfltool
+dumpbtm` requires Touch ID or an admin password, and a trust tool does
+not trigger authentication prompts.
 
 ## License
 
