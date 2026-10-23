@@ -235,10 +235,12 @@ Documented in the output, not hidden:
   reports `unknown` with the hint "not in Homebrew core API" and the
   tap shown.
 - **Non-GitHub homepages.** Maintenance is scored from the upstream
-  GitHub repository. Many modern casks point their homepage at a vendor
-  domain (`ghostty.org`, `linearmouse.org`, …) rather than GitHub;
-  those casks report maintenance `unknown` — never 0. In practice this
-  is the most common reason for a maintenance `unknown` in the table.
+  GitHub repository, matched **only** by parsing the cask's homepage
+  URL. Many modern casks point at a vendor domain
+  (`ghostty.org`, `linearmouse.org`, …) rather than GitHub; those casks
+  report maintenance `unknown` — never 0. Repositories are never
+  auto-attributed via GitHub search: a wrong mapping would create
+  false trust.
 - **TCC permissions are not scanned.** Reading them requires privacy
   prompts, which a trust tool must not trigger. Every report states
   this limitation explicitly.
@@ -258,9 +260,18 @@ exit codes). Only `collector` and `localscan` perform I/O.
 
 ## Roadmap
 
-1. Formulae support, once casks are rock-solid.
-2. First binary release: goreleaser run, the `homebrew-caskvet` tap,
-   and Developer ID signing.
+1. First binary release: goreleaser run, the `homebrew-caskvet` tap,
+   Developer ID signing and notarization.
+2. Formulae support, once casks are rock-solid.
+
+Agreed model changes, implemented only after the first release exists
+(see AGENTS.md):
+
+- Currency source switch: compare the installed version against the
+  current Homebrew catalog version instead of the upstream release.
+- BTM background-item scan (`sfltool`), only if it works without root
+  privileges and without privacy prompts — dropped otherwise.
+- Last-cask-update display: a displayed fact, never part of any score.
 
 ## License
 

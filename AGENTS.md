@@ -50,7 +50,7 @@ Overall score = min(maintenance, signing). Only the two trust-critical dimension
 - Maintenance, weight 0.4: repository archived = 0. Last commit > 12 months = hard deduction. Cask deprecated/disabled in core = 0, referencing the replacement token if Homebrew defines one.
 - Signing, weight 0.3: notarized = full. Signing authority changed since the previous snapshot = deduction plus a warning that prints old and new authority strings (team identifier plus name) in plain text. A team-identifier change is the Bartender detection and always triggers the watch warning. A name-only change at the same team is reported but does not reduce the score. Ad-hoc/unsigned = 0 with a Gatekeeper explanation.
 - Transparency, weight 0.2: list LaunchAgents, login items, and declared background items. Show, do not judge. No sub-score here; report the facts. TCC permissions are NOT scanned (reading them requires privacy prompts, which a trust tool must not trigger); the report states this limitation explicitly so the gap is visible.
-- Currency, weight 0.1: installed version vs. latest upstream release. Weak signal only; displayed, never gating.
+- Currency, weight 0.1: installed version vs. the current version of the cask in the Homebrew catalog. This is Homebrew data (the same cask JSON the collector already fetches), NOT the latest upstream GitHub release. Weak signal only; displayed, never gating. Up-to-date = full; installed version behind the cask's current version = deduction. Unknown catalog version = unknown, not scored.
 
 A dimension whose data is unavailable reports "unknown" and is excluded from the gate. Missing knowledge must not look like risk.
 
@@ -64,7 +64,7 @@ Exit 2 when at least one of the following holds after a completed scan:
 
 - any cask has a known overall score < 50;
 - any cask has a known maintenance score of 0 or a known signing score of 0;
-- a signing-authority change warning fired.
+- a signing-authority change warning fired (team-identifier change only; a name-only change warns in output but does not trigger exit 2).
 
 Currency 0 and transparency facts never produce exit 2. Exit 0 otherwise; exit 1 for config/usage/runtime errors before or during the scan.
 
@@ -74,28 +74,39 @@ Currency 0 and transparency facts never produce exit 2. Exit 0 otherwise; exit 1
 caskvet report [--json]          # scan and print the table
 caskvet why <cask>               # detailed scoring justification
 caskvet watch                    # compare against last snapshot, notify on the two triggers
-caskvet install <cask>           # pre-install gate (read-only check; caskvet never installs anything)
+caskvet install <cask>           # pre-install gate
 ```
 
 The first run must work with zero configuration and no token. Output is a compact table; `--json` is stable schema, machine-readable, documented. When a scan hits GitHub rate limits (results degraded to unknown) or the cask count visibly exceeds the unauthenticated budget (60 req/h, ~2 calls per cask) with no `GITHUB_TOKEN` set, print a single "set GITHUB_TOKEN for full coverage" hint — once, at the end of the run, never per cask.
 
+## Third-party taps (target behavior)
+
+Casks installed from third-party taps are not in the Homebrew core JSON API. For those casks, caskvet reads the cask's metadata from the local Homebrew installation (`brew info --cask --json=v2`, read-only, already on the allowed tool list) instead of the core API: token, version, app artifacts, declared launchctl/login items, tap source. Maintenance (GitHub upstream data) is still fetched normally from the upstream repository when it is a GitHub repo. The report always shows the tap source. If even local metadata is unavailable, the dimension reports unknown with the tap named — never risk.
+
 ## Known limitations (documented in output, not hidden)
 
-- Casks from third-party taps are not in the Homebrew core JSON API. Their metadata (tap, homepage, deprecated/replacement state, declared artifacts) comes from a read-only local `brew info` call instead. When the homepage points at GitHub, maintenance scores normally; otherwise it reports "unknown" with the hint "not in Homebrew core API". The report always shows the tap source.
 - TCC permissions are not scanned (see Transparency above).
+- Maintenance is unknown for casks whose upstream is not identifiable as a GitHub repository (non-GitHub homepages). Do NOT auto-attribute repositories via GitHub search — a wrong mapping creates false trust. Any repo mapping beyond homepage parsing must be explicit and visible in the output.
+
+## Agreed model changes (roadmap; implement only after a release exists)
+
+1. Currency source switch: replace the upstream-release comparison with the Homebrew catalog version comparison defined in the scoring model above. Pure data change in collector + score; the scoring model section above already describes the target state.
+2. Third-party tap metadata via local `brew info`: implement the "Third-party taps (target behavior)" section above. Touches collector only; no model change.
+3. BTM background-item scan (sfltool): BLOCKED until verified on a real Mac that it works without root privileges and without privacy prompts. If it requires privileges, this item is dropped — no opt-in flags for core functionality.
+4. Last-cask-update display (cask bump recency): display-only fact, like LaunchAgents. MUST NOT enter any score, the gate, or exit-2 logic. Spec wording must be added to AGENTS.md before implementation.
 
 ## Testing requirements
 
 - `internal/score` has 100% deterministic unit tests including: archived repo, stale repo (>12 months), authority change between snapshots (team change and name-only change), unsigned app, unknown-source cask, deprecated cask with replacement token, currency 0 must NOT gate, transparency facts must NOT gate.
 - `internal/collector` and `internal/localscan` are tested against recorded fixture data (JSON and command output files under `testdata/`), never against live APIs in CI.
-- Edge cases that MUST have tests: casks with multiple apps, casks without app artifacts, apps not in /Applications, non-GitHub homepages (unknown, not 0), offline behavior (last snapshot + date, no crash), manually replaced app bundles, third-party-tap casks (unknown maintenance, tap shown).
+- Edge cases that MUST have tests: casks with multiple apps, casks without app artifacts, apps not in /Applications, non-GitHub homepages (unknown, not 0), offline behavior (last snapshot + date, no crash), manually replaced app bundles, third-party-tap casks (local metadata path), currency behind catalog version.
 
 ## Documentation and release
 
 - README in English. Include the Bartender case study ("score 94 → 41 in three days, authority change visible in the diff").
-- Distribution: GitHub Releases first, own Homebrew tap, core PR later. goreleaser or equivalent; releases are signed when the maintainers have a Developer ID.
+- Distribution: GitHub Releases first (signed with Developer ID, notarized), own Homebrew tap, core PR later. goreleaser or equivalent; releases are signed when the maintainers have a Developer ID.
 - FUNDING.yml with GitHub Sponsors. No feature gates, no nagware. A trust tool does not use trust tricks.
 
 ## What not to build
 
-No GUI, no auto-update of apps, no formulae support before casks are rock-solid, no community database of owner changes unless it can self-maintain, no vulnerability/CVE features (that field is owned by other tools and sends the wrong signal), no TCC scanning.
+No GUI, no auto-update of apps, no formulae support before casks are rock-solid, no community database of owner changes unless it can self-maintain, no vulnerability/CVE features (that field is owned by other tools and sends the wrong signal), no TCC scanning, no auto-attribution of upstream repositories via search, no opt-in flags gating core functionality.
