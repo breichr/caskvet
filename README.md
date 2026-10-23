@@ -4,7 +4,6 @@
 [![Release](https://img.shields.io/github/v/release/breichr/caskvet?color=blue)](https://github.com/breichr/caskvet/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/breichr/caskvet?label=go)](https://go.dev)
-[![Go Report Card](https://goreportcard.com/badge/github.com/breichr/caskvet)](https://goreportcard.com/report/github.com/breichr/caskvet)
 
 A read-only supply-chain health report for the Homebrew casks installed
 on your Mac.
