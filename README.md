@@ -145,6 +145,28 @@ verdict: no at-risk findings — proceed with: brew install --cask linearmouse
 caskvet never installs anything; it only checks.
 ```
 
+### What the scores look like
+
+Real caskvet v0.1.1 scans and pre-install gates of popular software —
+one row per lesson. Transparency facts are the `BG` count
+(LaunchAgents/login items); currency never gates the overall score.
+
+| Cask | Maint | Sign | Curr | BG | Overall | What it shows |
+|---|---|---|---|---|---|---|
+| anybar | 100 | 0 | 100 | 0 | 0 | actively maintained, but the app is unsigned — Gatekeeper blocks first-run |
+| androidtool | 30 | 100 | 100 | 0 | 30 | the app itself is fine; the upstream code is 43 months old |
+| freecad | unknown | 20 | 100 | 0 | 20 | the app writes files into its own bundle, so the signed seal no longer matches |
+| firefox | unknown | 100 | 70 | 0 | 100 | a version behind the catalog is displayed, never gated |
+| linearmouse | unknown | 100 | 100 | 1 | 100 | background items are listed as facts (its login item) |
+| font-jetbrains-mono | unknown | unknown | 100 | 0 | unknown | no app artifacts: nothing guessed, nothing scored |
+| alacritty *(pre-install gate)* | 0 | unknown | 100 | 0 | 0 | disabled in homebrew/cask — flagged before you install |
+
+Maintenance is `unknown` for several popular apps because their
+homepages are vendor domains, not GitHub repos — caskvet never guesses
+a repository mapping. The one signing verdict not shown (70: signed
+and Gatekeeper-accepted but not notarized) is rare for third-party
+apps today.
+
 ### Exit codes
 
 | Code | Meaning                                              |
