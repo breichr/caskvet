@@ -293,10 +293,10 @@ not trigger authentication prompts.
 
 ## Funding
 
-If caskvet saves you a surprise, consider sponsoring the maintainer on
-[GitHub Sponsors](https://github.com/sponsors/breichr). Entirely
-optional — the tool has no feature gates and no nagware, and it never
-will.
+If caskvet saves you a surprise, consider buying the maintainer a
+coffee on [Buy Me a Coffee](https://www.buymeacoffee.com/cbreiteneder).
+Entirely optional — the tool has no feature gates and no nagware, and
+it never will.
 
 ## License
 
